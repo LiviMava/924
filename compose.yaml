@@ -1,0 +1,84 @@
+# Linux deployment reference (the app runs as UID/GID 10001):
+# mkdir -p .runtime/compose/app
+# sudo chown 10001:10001 .runtime/compose/app
+# docker compose --env-file .local.env up -d --build
+# Bind a reverse proxy with TLS to the loopback app port for external access.
+# Compose storage is separate from the native Windows development databases.
+name: enterprise-rag
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: rag
+      POSTGRES_USER: ${RAG_DB_USER:-rag}
+      POSTGRES_PASSWORD: ${RAG_DB_PASSWORD:?Set RAG_DB_PASSWORD in .local.env}
+    volumes:
+      - ./.runtime/compose/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: &rotated-logs
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  qdrant:
+    image: qdrant/qdrant:v1.19.1
+    restart: unless-stopped
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"
+      QDRANT__SERVICE__API_KEY: ${RAG_QDRANT_API_KEY:?Set RAG_QDRANT_API_KEY in .local.env}
+      QDRANT__SERVICE__ENABLE_CORS: "false"
+      QDRANT__SERVICE__ENABLE_SNAPSHOT_URL_RECOVERY: "false"
+    volumes:
+      - ./.runtime/compose/qdrant/storage:/qdrant/storage
+      - ./.runtime/compose/qdrant/snapshots:/qdrant/snapshots
+    logging: *rotated-logs
+
+  app:
+    build:
+      context: ./java-chatbot
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    stop_grace_period: 45s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    ports:
+      - "127.0.0.1:8090:8090"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_ADDRESS: 0.0.0.0
+      SERVER_PORT: "8090"
+      RAG_DATA_DIR: /app/data
+      RAG_JDBC_URL: jdbc:postgresql://postgres:5432/rag
+      RAG_DB_USER: ${RAG_DB_USER:-rag}
+      RAG_DB_PASSWORD: ${RAG_DB_PASSWORD:?Set RAG_DB_PASSWORD in .local.env}
+      RAG_QDRANT_HOST: qdrant
+      RAG_QDRANT_GRPC_PORT: "6334"
+      RAG_QDRANT_URL: http://qdrant:6333
+      RAG_QDRANT_API_KEY: ${RAG_QDRANT_API_KEY:?Set RAG_QDRANT_API_KEY in .local.env}
+      RAG_QDRANT_COLLECTION: ${RAG_QDRANT_COLLECTION:-company_chunks_v1}
+      RAG_API_KEY: ${RAG_API_KEY:?Set RAG_API_KEY in .local.env}
+      RAG_CHAT_BASE_URL: ${RAG_CHAT_BASE_URL:?Set RAG_CHAT_BASE_URL in .local.env}
+      RAG_CHAT_API_KEY: ${RAG_CHAT_API_KEY:-not-required}
+      RAG_CHAT_MODEL: ${RAG_CHAT_MODEL:?Set RAG_CHAT_MODEL in .local.env}
+      RAG_EMBEDDING_BASE_URL: ${RAG_EMBEDDING_BASE_URL:?Set RAG_EMBEDDING_BASE_URL in .local.env}
+      RAG_EMBEDDING_API_KEY: ${RAG_EMBEDDING_API_KEY:-not-required}
+      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:?Set RAG_EMBEDDING_MODEL in .local.env}
+      RAG_EMBEDDING_DIMENSIONS: ${RAG_EMBEDDING_DIMENSIONS:?Set RAG_EMBEDDING_DIMENSIONS in .local.env}
+      RAG_MIN_VECTOR_SCORE: ${RAG_MIN_VECTOR_SCORE:-0.45}
+      RAG_RERANK_URL: ${RAG_RERANK_URL:-}
+      RAG_RERANK_API_KEY: ${RAG_RERANK_API_KEY:-}
+      RAG_RERANK_MODEL: ${RAG_RERANK_MODEL:-}
+    volumes:
+      - ./.runtime/compose/app:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    logging: *rotated-logs

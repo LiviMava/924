@@ -1,0 +1,6 @@
+{"query":"上海出差住宿每晚最多能报销多少？","expected_document":"company-handbook.md","expected_terms":["650"]}
+{"query":"出差后多久提交报销，需要哪些材料？","expected_document":"company-handbook.md","expected_terms":["15","发票","支付凭证"]}
+{"query":"新员工第一天需要做什么？","expected_document":"company-handbook.md","expected_terms":["账号","设备","保密"]}
+{"query":"生产代码变更需要几个人评审？","expected_document":"engineering-guide.md","expected_terms":["至少一名"]}
+{"query":"发布失败如何回滚？","expected_document":"engineering-guide.md","expected_terms":["上一份","回滚"]}
+{"query":"接口调用出错用什么追踪请求？","expected_document":"engineering-guide.md","expected_terms":["X-Request-Id"]}

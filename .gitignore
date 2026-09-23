@@ -1,0 +1,8 @@
+.runtime/
+.local.env
+.env
+java-chatbot/target/
+*.log
+.idea/
+.vscode/
+*.iml

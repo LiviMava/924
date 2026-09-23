@@ -1,0 +1,15 @@
+# Paths are relative to the project root; Start-Local.ps1 sets that working directory.
+log_level: INFO
+telemetry_disabled: true
+storage:
+  storage_path: ./.runtime/qdrant/storage
+  snapshots_path: ./.runtime/qdrant/snapshots
+  temp_path: ./.runtime/qdrant/tmp
+service:
+  host: 127.0.0.1
+  http_port: 6333
+  grpc_port: 6334
+  enable_cors: false
+  enable_snapshot_url_recovery: false
+cluster:
+  enabled: false

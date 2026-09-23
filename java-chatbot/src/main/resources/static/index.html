@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>知序 · 企业知识库</title>
+  <link rel="stylesheet" href="/rag.css">
+  <script src="/rag.js" defer></script>
+</head>
+<body>
+  <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H5l-3 3V11.5A7.5 7.5 0 0 1 9.5 4h3a7.5 7.5 0 0 1 7.5 7.5Z"/><path d="M7 10h8M7 14h5"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h5l3 3h6a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path d="M3 9h18"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h7m5 0h4M4 17h3m5 0h8"/><circle cx="13.5" cy="7" r="2.5"/><circle cx="9.5" cy="17" r="2.5"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M12 20V4m-6 6 6-6 6 6"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H5v18h14V8l-5-5Z"/><path d="M14 3v6h5M8 13h8M8 17h6"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 6-6 6 6 6m8-12 6 6-6 6M14 3l-4 18"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  </defs></svg>
+  <a class="skip-link" href="#main-content">跳转到主要内容</a>
+  <aside class="sidebar" aria-label="应用导航">
+    <a class="brand" href="/" aria-label="知序企业知识库首页"><span class="brand-mark">知</span><span>知序<span class="brand-caption">ENTERPRISE KNOWLEDGE</span></span></a>
+    <div class="workspace"><span class="workspace-avatar">内</span><div><strong>企业知识空间</strong><span>Internal workspace</span></div><span class="workspace-dot"></span></div>
+    <p class="nav-label">工作空间</p>
+    <nav class="nav-items">
+      <button class="nav-item active" data-view="chat" aria-current="page" aria-label="知识问答"><svg><use href="#i-chat"/></svg>知识问答<span class="nav-arrow">↗</span></button>
+      <button class="nav-item" data-view="documents" aria-label="文档管理"><svg><use href="#i-folder"/></svg>文档管理<span id="nav-doc-count" class="nav-count">0</span></button>
+      <button class="nav-item" data-view="search" aria-label="检索调试"><svg><use href="#i-search"/></svg>检索调试</button>
+    </nav>
+    <div class="sidebar-bottom"><div class="privacy-note"><span class="local-mark"></span><strong>本地知识，可信连接</strong><p>文档与索引保存在本地。<br>相关内容按配置发送至模型 API。</p></div><a class="nav-item" href="/swagger-ui.html" target="_blank" rel="noopener" aria-label="API 集成"><svg><use href="#i-code"/></svg>API 集成<span class="nav-arrow">↗</span></a><button class="nav-item" id="settings-open" aria-label="连接设置"><svg><use href="#i-sliders"/></svg>连接设置</button><div class="sidebar-footer"><span>知序 RAG</span><span>本地工作空间</span></div></div>
+  </aside>
+  <div class="app-shell">
+    <header class="topbar"><div class="breadcrumb">工作空间 <span>/</span> <strong id="page-name">知识问答</strong></div><div class="topbar-actions"><span class="connection-status" id="connection-status"><span class="status-dot"></span><span id="connection-label">连接中</span></span><button class="button button-small" id="refresh-system">刷新状态</button></div></header>
+    <main id="main-content">
+      <div id="notice" class="notice" role="status" hidden></div>
+      <section id="view-chat" class="view chat-view" aria-labelledby="chat-title">
+        <div class="page-heading"><div><div class="eyebrow">KNOWLEDGE ASSISTANT</div><h1 id="chat-title">让知识，成为答案<span class="heading-dot">.</span></h1><p>基于内部文档回答，每一个答案都有据可循。</p></div><button class="button" id="new-chat" aria-label="新对话"><svg><use href="#i-plus"/></svg>新对话</button></div>
+        <div class="chat-workspace">
+          <div class="conversation-panel">
+            <div class="panel-toolbar"><div><span class="live-dot"></span><strong>知识助手</strong><span class="subtle-label">文档增强问答</span></div><span class="small-muted" id="history-count">当前对话 0 / 20</span></div>
+            <div id="messages" class="messages" role="log" aria-label="对话消息" aria-live="polite" aria-relevant="additions text">
+              <div id="welcome" class="welcome"><div class="welcome-art" aria-hidden="true"><div class="art-sheet back"></div><div class="art-sheet front"><span></span><span></span><span></span></div><div class="art-spark">✦</div></div><span class="eyebrow">YOUR TEAM'S KNOWLEDGE, CONNECTED</span><h2>从一份文档，开始对话</h2><p>上传制度、手册或项目资料，<br>让分散的信息成为可追溯的答案。</p><div class="starter-prompts"><button data-prompt="请概括知识库中已有文档的主要内容，并列出来源。"><span>01</span>了解文档的主要内容<span>↗</span></button><button data-prompt="请查找公司报销流程，说明所需材料与审批步骤，并引用来源。"><span>02</span>查找流程与操作步骤<span>↗</span></button><button data-prompt="请根据文档整理新同事需要了解的事项，并列出依据。"><span>03</span>整理新人入职指南<span>↗</span></button></div></div>
+            </div>
+            <form id="chat-form" class="composer"><label class="visually-hidden" for="question">向知识库提问</label><textarea id="question" rows="3" maxlength="2000" placeholder="向知识库提问，例如：项目交付需要哪些审批？"></textarea><div class="composer-footer"><span id="chat-readiness" class="small-muted">正在检查模型与检索服务…</span><button type="button" id="stop-chat" class="button button-small" hidden>停止生成</button><button type="submit" id="send-chat" class="send-button" aria-label="发送问题" disabled><svg><use href="#i-arrow"/></svg></button></div></form><p class="composer-note">Enter 发送 · Shift + Enter 换行　<span>请结合引用原文核实重要信息</span></p>
+          </div>
+          <aside class="evidence-panel" aria-labelledby="evidence-title"><div class="evidence-heading"><span class="eyebrow">SOURCE CONTEXT</span><h2 id="evidence-title">答案的依据<span id="citation-count">0</span></h2></div><div id="evidence-content"><div class="evidence-empty"><svg><use href="#i-file"/></svg><h3>来源会在这里展开</h3><p>提问后查看命中的文档、<br>原文片段与页码。</p></div></div><div class="knowledge-summary"><div><span class="small-muted">当前知识库</span><button class="text-button" data-open-documents>管理文档 ↗</button></div><div class="knowledge-numbers"><strong id="ready-count">0<small>可用文档</small></strong><strong id="chunk-count">0<small>知识片段</small></strong></div><p id="knowledge-tip">先添加文档，建立团队的知识底座。</p></div></aside>
+        </div>
+      </section>
+      <section id="view-documents" class="view" aria-labelledby="documents-title" hidden>
+        <div class="page-heading"><div><div class="eyebrow">DOCUMENT LIBRARY</div><h1 id="documents-title">团队知识，从这里汇集<span class="heading-dot">.</span></h1><p>导入、解析、建立索引，持续维护可检索的文档资料。</p></div><button class="button" id="refresh-documents">刷新列表</button></div>
+        <div class="upload-zone" id="upload-zone"><div class="upload-icon"><svg><use href="#i-upload"/></svg></div><div><h2>将文档拖到这里，或选择文件</h2><p id="upload-formats">支持 PDF、Word、TXT、Markdown · 暂不支持图片</p></div><label class="button button-primary" for="file-input">选择文档</label><input id="file-input" type="file" accept=".pdf,.doc,.docx,.txt,.md" multiple class="visually-hidden"></div>
+        <p id="upload-status" class="upload-status" role="status"></p>
+        <div class="document-card"><div class="card-title"><div><h2>全部文档</h2><span id="document-summary">加载中…</span></div><span class="small-muted">导入中的任务自动更新</span></div><div class="table-scroll"><table><thead><tr><th scope="col">文档名称</th><th scope="col">状态</th><th scope="col">片段数</th><th scope="col">更新时间</th><th scope="col" class="actions-heading">操作</th></tr></thead><tbody id="document-rows"></tbody></table></div><div class="table-empty" id="documents-empty" hidden><svg><use href="#i-folder"/></svg><h3>知识库还是空的</h3><p>上传第一份文档，开始建立团队知识库。</p></div></div>
+        <div class="process-note"><span>01 <strong>上传文档</strong></span><span>→</span><span>02 <strong>解析与分块</strong></span><span>→</span><span>03 <strong>向量化与索引</strong></span><span>→</span><span>04 <strong>就绪，可问答</strong></span></div>
+      </section>
+      <section id="view-search" class="view" aria-labelledby="search-title" hidden>
+        <div class="page-heading"><div><div class="eyebrow">RETRIEVAL PLAYGROUND</div><h1 id="search-title">先找到依据，再验证答案<span class="heading-dot">.</span></h1><p>独立查看检索命中，帮助团队调试文档与召回效果。</p></div><a class="button" href="/swagger-ui.html" target="_blank" rel="noopener" aria-label="API 文档"><svg><use href="#i-code"/></svg>API 文档 ↗</a></div>
+        <form id="search-form" class="search-form"><label class="visually-hidden" for="search-query">检索问题</label><svg><use href="#i-search"/></svg><input id="search-query" maxlength="2000" placeholder="输入需要查找的信息或业务问题" required><label for="search-topk">返回数量</label><select id="search-topk"><option value="3">3</option><option value="6" selected>6</option><option value="10">10</option></select><button class="button button-primary" id="search-submit">检索</button></form>
+        <div class="search-summary" id="search-summary">检索结果将展示原文、来源、页码和相关性分数。</div><div id="search-results" class="search-results"><div class="search-empty"><svg><use href="#i-search"/></svg><h2>探索知识库中的原始证据</h2><p>检索直接返回相关片段，可单独验证召回结果。</p></div></div>
+      </section>
+    </main>
+  </div>
+  <dialog id="settings-dialog" aria-labelledby="settings-title"><form id="settings-form"><div class="dialog-heading"><div><span class="eyebrow">CONNECTION</span><h2 id="settings-title">连接设置</h2></div><button type="button" class="icon-button" id="settings-close" aria-label="关闭连接设置">×</button></div><p class="dialog-description">服务端管理模型与数据连接；此处用于检查服务和设置访问令牌。</p><div id="service-statuses" class="service-statuses"></div><label class="field-label" for="access-token">API 访问令牌 <span>按服务器配置填写</span></label><input type="password" id="access-token" autocomplete="off" placeholder="输入 Bearer Token" spellcheck="false"><p class="field-hint">仅保存在当前标签页的会话存储中，不写入本地持久存储。</p><div class="integration-note"><strong>面向团队集成</strong><p>统一 REST API 与 OpenAPI 文档，可将上传、检索和流式问答接入现有系统。</p><a href="/swagger-ui.html" target="_blank" rel="noopener">查看 API 文档 ↗</a></div><div class="dialog-actions"><button class="button" type="button" id="clear-token">清除令牌</button><button class="button button-primary" type="submit">保存并连接</button></div></form></dialog>
+</body>
+</html>

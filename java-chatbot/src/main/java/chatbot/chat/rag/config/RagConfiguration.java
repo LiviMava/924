@@ -16,7 +16,7 @@ import org.springframework.context.annotation.Bean;
 
 @Configuration
 @EnableScheduling
-@EnableConfigurationProperties(RagProperties.class)
+@EnableConfigurationProperties({RagProperties.class,chatbot.chat.rag.mcp.McpProperties.class})
 public class RagConfiguration {
     public RagConfiguration(RagProperties properties, Environment environment) throws IOException {
         for (String name : new String[]{"tmp", "uploads", "lucene"}) {

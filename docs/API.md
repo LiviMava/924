@@ -2,6 +2,8 @@
 
 基础URL默认为 http://127.0.0.1:8090。交互文档为 /swagger-ui.html，OpenAPI JSON为 /v3/api-docs。JSON使用UTF-8。
 
+NX 工具模式使用独立的 `/api/v1/agent` 接口。工具发现、SSE 事件、确认/取消/恢复和会话 cookie 的合同见 [MCP / NX 集成](MCP_NX.md#api-集成)。普通文档 `/chat` 不会调用 NX。
+
 ## 鉴权与错误
 
 服务配置RAG_API_KEY后，业务请求必须携带 Authorization: Bearer <token>。这是应用服务令牌，不是模型供应商API Key。系统GET /api/v1/system与GET /actuator/health公开可用。

@@ -14,8 +14,10 @@ import java.util.List;
 public class ModelGateway {
     private final OpenAiChatModel chat;
     private final OpenAiEmbeddingModel embedding;
+    private final boolean deepSeekToolMode;
     public ModelGateway(RagProperties properties, ObservationRegistry observations) {
         var c = properties.chat();
+        deepSeekToolMode=c.configured() && "api.deepseek.com".equalsIgnoreCase(java.net.URI.create(c.baseUrl()).getHost());
         chat = c.configured() ? OpenAiChatModel.builder()
             .options(OpenAiChatOptions.builder().baseUrl(c.baseUrl()).apiKey(c.apiKey())
                 .model(c.model()).timeout(Duration.ofSeconds(60)).maxRetries(1).build())
@@ -36,6 +38,23 @@ public class ModelGateway {
         if (chat == null) throw new IllegalStateException("聊天模型尚未配置");
         var response = chat.call(prompt);
         return response.getResult().getOutput().getText();
+    }
+    /** Return native tool calls to the host; the model SDK must never execute them implicitly. */
+    public org.springframework.ai.chat.model.ChatResponse agentTurn(Prompt prompt,List<org.springframework.ai.tool.ToolCallback> tools) {
+        return agentTurn(prompt,tools,Duration.ofSeconds(45));
+    }
+    public org.springframework.ai.chat.model.ChatResponse agentTurn(Prompt prompt,List<org.springframework.ai.tool.ToolCallback> tools,Duration timeout) {
+        if(chat==null) throw new IllegalStateException("聊天模型尚未配置");
+        // Spring AI 2.x executes tools in ToolCallAdvisor; direct ChatModel calls return tool requests.
+        // This gateway deliberately installs no ToolCallAdvisor.
+        // The builder has its own default model; always preserve the configured provider model.
+        var builder=OpenAiChatOptions.builder().model(chat.getOptions().getModel()).toolCallbacks(tools)
+            .strict(false)
+            .parallelToolCalls(false).maxRetries(0).timeout(timeout);
+        // This bounded planner keeps public chat history, not provider-specific reasoning state.
+        // DeepSeek defaults to thinking mode, which requires replaying reasoning for every tool turn.
+        if(deepSeekToolMode) builder.extraBody(java.util.Map.of("thinking",java.util.Map.of("type","disabled")));
+        return chat.call(new Prompt(prompt.getInstructions(),builder.build()));
     }
     public Flux<String> stream(Prompt prompt) {
         if (chat == null) throw new IllegalStateException("聊天模型尚未配置");

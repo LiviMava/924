@@ -31,6 +31,14 @@ class ModelGatewayTest {
                         "model":"test-embedding","usage":{"prompt_tokens":3,"total_tokens":3}}
                         """;
                     exchange.getResponseHeaders().set("Content-Type","application/json");
+                } else if(body.has("tools")) {
+                    assertEquals("test-chat",body.path("model").asText(),"Per-call tool options must preserve configured model");
+                    assertEquals("nx_get_context",body.path("tools").get(0).path("function").path("name").asText());
+                    response="""
+                        {"id":"tool-test","object":"chat.completion","created":1,"model":"test-chat",
+                        "choices":[{"index":0,"message":{"role":"assistant","content":null,"tool_calls":[{"id":"call-1","type":"function","function":{"name":"nx_get_context","arguments":"{}"}}]},"finish_reason":"tool_calls"}]}
+                        """;
+                    exchange.getResponseHeaders().set("Content-Type","application/json");
                 } else if(body.path("stream").asBoolean()) {
                     response="""
                         data: {"id":"chat-test","object":"chat.completion.chunk","created":1,"model":"test-chat","choices":[{"index":0,"delta":{"role":"assistant","content":"标准为650元。[1]"},"finish_reason":null}]}
@@ -67,7 +75,14 @@ class ModelGatewayTest {
             assertEquals("标准为650元。[1]",gateway.answer(new Prompt("费用标准")));
             assertEquals("标准为650元。[1]",gateway.stream(new Prompt("费用标准")).collectList()
                 .map(parts->String.join("",parts)).block(Duration.ofSeconds(10)));
-            assertEquals(3,requests.get());
+            var callback=new org.springframework.ai.tool.ToolCallback() {
+                public org.springframework.ai.tool.definition.ToolDefinition getToolDefinition() {
+                    return new org.springframework.ai.tool.definition.DefaultToolDefinition("nx_get_context","Read NX", "{\"type\":\"object\",\"properties\":{}}");
+                }
+                public String call(String input) { fail("SDK must not execute tools implicitly");return ""; }
+            };
+            assertTrue(gateway.agentTurn(new Prompt("NX状态"),List.of(callback)).getResult().getOutput().hasToolCalls());
+            assertEquals(4,requests.get());
         } finally { server.stop(0); }
     }
 }

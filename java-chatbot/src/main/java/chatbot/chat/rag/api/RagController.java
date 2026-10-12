@@ -32,17 +32,19 @@ public class RagController {
     private final VectorIndex vectors;
     private final RagProperties properties;
     private final ObjectMapper json;
+    private final chatbot.chat.rag.mcp.NxMcpClient nxMcp;
     private final Semaphore chatSlots=new Semaphore(8);
     public RagController(DocumentService documents,HybridRetriever retriever,RagService rag,ModelGateway models,
-                         VectorIndex vectors,RagProperties properties,ObjectMapper json) {
+                         VectorIndex vectors,RagProperties properties,ObjectMapper json,chatbot.chat.rag.mcp.NxMcpClient nxMcp) {
         this.documents=documents;this.retriever=retriever;this.rag=rag;this.models=models;
         this.vectors=vectors;this.properties=properties;this.json=json;
+        this.nxMcp=nxMcp;
     }
     @GetMapping("/system") public Map<String,Object> system() {
         return Map.of("name","Company Knowledge","chatConfigured",models.chatConfigured(),
             "embeddingConfigured",models.embeddingConfigured(),"vectorHealthy",vectors.healthy(),
             "authenticationRequired",!properties.apiKey().isBlank(),"supportedFormats",List.of("pdf","doc","docx","txt","md"),
-            "maxUploadBytes",DocumentService.MAX_BYTES);
+            "maxUploadBytes",DocumentService.MAX_BYTES,"mcpConfigured",nxMcp.configured());
     }
     @GetMapping("/documents") public List<DocumentRecord> list(@RequestParam(defaultValue="100") @Min(1) @Max(500) int limit,
                                                               @RequestParam(defaultValue="0") @Min(0) int offset) {

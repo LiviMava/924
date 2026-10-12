@@ -100,9 +100,10 @@
       else if (!system.chatConfigured) description = '问答模型未配置；可先上传文档并使用「检索调试」。';
       else if (!system.embeddingConfigured || !system.vectorHealthy) description = '关键词检索模式 · 配置向量服务可启用混合检索';
       else description = '结合知识库作答 · 最近 20 条消息作为上下文';
+      if ($('nx-mode').checked) description = system.mcpConfigured ? 'NX 工具模式 · 修改前展示计划并确认' : 'NX MCP 未启用，请按项目 NX 接入说明配置';
     }
     $('chat-readiness').textContent = description;
-    $('send-chat').disabled = !system?.chatConfigured || !authenticated() || !!state.chatController || !$('question').value.trim();
+    $('send-chat').disabled = !system?.chatConfigured || !authenticated() || !!state.chatController || !$('question').value.trim() || ($('nx-mode').checked && !system?.mcpConfigured);
     $('stop-chat').hidden = !state.chatController;
     $('search-submit').disabled = !authenticated() || state.searchBusy;
     $('file-input').disabled = !authenticated() || state.uploadBusy;
@@ -115,6 +116,7 @@
     $('connection-label').textContent = !system ? '服务不可用' : ready ? '服务已就绪' : '关键词检索可用';
     const statuses = [
       ['问答模型', system?.chatConfigured, '已配置', '未配置'],
+      ['NX MCP', system?.mcpConfigured, '已启用 · 需在 NX 内启用桥接', '未启用'],
       ['Embedding 模型', system?.embeddingConfigured, '已配置', '未配置 · 可用关键词检索'],
       ['向量数据库', system?.vectorHealthy, '连接正常', '未连接 · 可用关键词检索'],
       ['接口鉴权', system && (!system.authenticationRequired || !!state.token),
@@ -362,7 +364,7 @@
     const citations = Array.isArray(data.citations) ? data.citations : [];
     const warnings = Array.isArray(data.warnings) ? data.warnings : [];
     const meta = element('div', 'message-meta');
-    meta.append(element('span', '', data.grounded ? '已结合文档依据' : '依据不足，请核实'));
+    meta.append(element('span', '', data.toolTrace ? 'NX 工具模式 · 以执行回执为准' : data.grounded ? '已结合文档依据' : '依据不足，请核实'));
     if (citations.length) meta.append(button('查看 ' + citations.length + ' 条引用 ↗', '', () => {
       renderEvidence(citations, data.retrievalMode, warnings);
       if (window.matchMedia('(max-width: 720px)').matches) $('evidence-title').scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -370,6 +372,49 @@
     message.node.append(meta);
     if (warnings.length) message.node.append(element('p', 'message-warning', warnings.join('\n')));
     renderEvidence(citations, data.retrievalMode, warnings);
+  }
+  function renderToolAction(message, action) {
+    if (message.node.querySelector('[data-action-id="' + action.id + '"]')) return;
+    const card = element('section', 'nx-action');
+    card.dataset.actionId = action.id;
+    const names = { PENDING: '等待确认', EXECUTING: '执行中', SUCCEEDED: '执行成功', FAILED: '执行失败', UNKNOWN: '结果未知，请查询并检查 NX', CANCELLED: '已取消', EXPIRED: '计划已过期，请重新预览' };
+    card.append(element('strong', '', '待确认：在 NX 中新建独立长方体'));
+    const p = action.preview.parameters || {};
+    const context = action.preview.context || {};
+    card.append(element('p', '', '目标零件：' + (context.partName || '未知') + ' · 单位：' + (context.units || '未知') +
+      (context.backend === 'MOCK' ? ' · 模拟模式，未连接真实 NX' : ' · NX ' + (context.nxVersion || ''))));
+    card.append(element('p', '', '长度 X：' + p.length + ' mm　宽度 Y：' + p.width + ' mm　高度 Z：' + p.height + ' mm'));
+    card.append(element('p', '', '绝对原点：(' + p.x + ', ' + p.y + ', ' + p.z + ') mm'));
+    card.append(element('p', 'small-muted', '新建独立实体，不合并现有实体。不会自动保存零件；成功后可在 NX 中撤销。'));
+    const preview = element('pre', 'nx-preview', JSON.stringify(action.preview, null, 2));
+    const details = element('details', 'nx-details');
+    details.append(element('summary', '', '接口与执行详情'), preview);
+    const status = element('p', '', '状态：' + (names[action.status] || action.status) + ' · 有效至 ' + new Date(action.expiresAt).toLocaleTimeString());
+    const controls = element('div', 'nx-controls');
+    async function update(operation) {
+      for (const child of controls.children) child.disabled = true;
+      status.textContent = '正在处理，请勿重复提交…';
+      try {
+        action = await api('/agent/actions/' + encodeURIComponent(action.id) + '/' + operation,
+          { ...jsonRequest(operation === 'approve' ? { argumentsHash: action.argumentsHash } : {}), timeout: 45000 });
+        status.textContent = '状态：' + (names[action.status] || action.status) + (action.result?.backend === 'MOCK' ? '（模拟，未修改 NX）' : '') +
+          (action.result?.message ? ' · ' + action.result.message : '');
+        preview.textContent = JSON.stringify({ preview: action.preview, result: action.result, commandId: action.commandId }, null, 2);
+      } catch (error) {
+        status.textContent = errorText(error) + ' 执行结果可能未知，使用查询结果核查；请勿重复建模。';
+        // Refresh durable state. A network timeout must never be treated as a safe retry.
+        try { action = await api('/agent/actions/' + encodeURIComponent(action.id)); } catch (_) { action.status = 'UNKNOWN'; }
+      } finally {
+        confirm.disabled = action.status !== 'PENDING';
+        cancel.disabled = action.status !== 'PENDING';
+        reconcile.disabled = !['UNKNOWN', 'EXECUTING'].includes(action.status);
+      }
+    }
+    const confirm = button('确认并执行', 'button button-primary', () => update('approve'));
+    const cancel = button('取消计划', 'button', () => update('cancel'));
+    const reconcile = button('查询执行结果', 'button', () => update('reconcile'));
+    reconcile.disabled = true;
+    controls.append(confirm, cancel, reconcile); card.append(status, controls, details); message.node.append(card);
   }
   // Parse SSE frames across arbitrary network chunk boundaries, including CRLF.
   async function readEventStream(response, handleEvent, signal) {
@@ -433,11 +478,12 @@
     const answer = addMessage('assistant', '正在检索文档依据…');
     let accumulated = '';
     let result = null;
+    const toolNodes = new Map();
     $('citation-count').textContent = '0';
     $('evidence-content').replaceChildren(element('p', 'empty-evidence', '正在查找与问题相关的文档片段…'));
     updateReadiness();
     try {
-      const response = await fetch(API + '/chat/stream', {
+      const response = await fetch(API + ($('nx-mode').checked ? '/agent/chat/stream' : '/chat/stream'), {
         ...jsonRequest({ question, history }),
         headers: { ...authHeaders(), 'Content-Type': 'application/json', Accept: 'text/event-stream' },
         signal: controller.signal
@@ -452,6 +498,16 @@
           accumulated += data.text || '';
           answer.content.textContent = accumulated;
           scrollMessages();
+        } else if (eventName === 'tool') {
+          if (!toolNodes.has(data.name)) {
+            const node = element('p', 'nx-tool-event'); toolNodes.set(data.name, node); answer.node.append(node);
+          }
+          const label = data.name === 'nx_get_context' ? '读取 NX 工作零件' : '生成长方体预览';
+          let text = label + ' · ' + (data.status === 'RUNNING' ? '处理中…' : '已完成');
+          if (data.name === 'nx_get_context' && data.result) text += ' · ' + (data.result.partName || '无工作零件') + ' · ' + (data.result.units || '');
+          toolNodes.get(data.name).textContent = text;
+        } else if (eventName === 'approval') {
+          renderToolAction(answer, data);
         } else if (eventName === 'done') {
           result = data;
           // The server's final response is authoritative, even after partial deltas.
@@ -464,6 +520,7 @@
       if (!result) throw new Error('服务未返回完整的回答，请重试。');
       state.history = boundedHistory([...history, { role: 'user', content: question }, { role: 'assistant', content: result.answer || '' }]);
       showAnswerMetadata(answer, result);
+      if (result.pendingAction) renderToolAction(answer, result.pendingAction);
     } catch (error) {
       if (generation !== state.chatGeneration) return;
       const reason = error.name === 'AbortError'
@@ -557,6 +614,7 @@
     $('question').focus();
   }));
   $('question').addEventListener('input', updateReadiness);
+  $('nx-mode').addEventListener('change', () => { newChat(); updateReadiness(); });
   $('question').addEventListener('keydown', event => {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) {
       event.preventDefault();

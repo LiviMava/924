@@ -1,5 +1,30 @@
 # 验证记录
 
+## 2026-10-12：智谱 Embedding 与真实 NX 写入验收
+
+- 用户提供的智谱密钥仅保存到忽略文件 `.local.env`。已通过官方 HTTP 接口和本项目实际 Spring AI SDK 验证 `embedding-3`，实际输出 2048 维。
+- 现有三份演示文档全部重建为 READY / HYBRID。Qdrant 当前 collection 为 2048 维、3 个 points；中文 BM25 与向量召回通过 RRF 融合，检索冒烟集 6/6 通过，返回模式为 HYBRID。
+- 通过本服务实际调用 DeepSeek 问答，正确返回住宿标准“每晚 650 元”和有效引用，grounded=true、retrievalMode=HYBRID。
+- 旧待确认计划因超过五分钟而被拒绝，未修改 NX；随后按原参数重新预览，在真实 NX 2512 的 model1 毫米零件执行成功。
+- 在 NX 原生块特征界面核对长度 100、宽度 50、高度 20 mm，并验证撤销。发现旧桥接在当前会话不能重做，修复为在可见 UndoMark 前显式 EnableRedo(true)。
+- 桥接新增固定绝对 X/Y 方向、创建后检查一个独立实体与实际包围盒；修复版 `NxBridge.Tested.dll` 已实际加载并执行，回执返回 geometryVerified=true、actualBoundsMm=[0,0,0,100,50,20]、actualSizeMm=[100,50,20]。
+- 修复版真实 Undo 后实体消失，Redo 后同一实体恢复；MCP 读取确认最终特征数 1、实体数 1。测试结束保留该实体，没有保存或覆盖零件文件。
+- 重复读取同一命令回执得到相同 SUCCEEDED 与几何核验结果，模型 snapshot 和实体数保持不变；记录见 `.runtime/nx-receipt-verified.json`。网页最终状态为“执行成功”，截图见 `.runtime/nx-chat-completed.jpg`。
+- 实际回执、NX 原生尺寸检查、撤销和最终模型的证据保存在 `.runtime/nx-execution-validated.json`、`.runtime/nx-dimensions-verified.png`、`.runtime/nx-undo-verified.png`、`.runtime/nx-model-verified.png`。
+
+以下为此前阶段的历史记录；Embedding 未配置和 NX 写入未验收的旧状态已由本次记录更新。
+
+## 2026-10-12：MCP / NX 扩展
+
+- RAG 模块 40 项测试通过，MCP Server 模块 4 项测试通过。RAG 测试包含真实 Qdrant 和显式启用的真实 NX 只读/预览测试；MCP 写入测试使用明确标注的 MOCK 后端。
+- NX 桥接 DLL 针对本机 NX 2512 managed 程序集编译成功；用户在 NX 内加载并启用后，官方 MCP Java Client 成功完成初始化、工具发现、读取毫米工作零件和长方体预览。预览前后 snapshot 相同。
+- 实际 DeepSeek + RAG Host + MCP Server + NX Open 链路成功生成建模计划，状态 PENDING；浏览器确认卡片显示目标零件、尺寸和原点。
+- 页面使用真实 `model1` 毫米零件生成 100 × 50 × 20 mm、绝对原点 (0,0,0) 的计划，并展示 NX 接入演示文档作为检索来源。确认按钮、取消按钮及收起的接口详情已在实际浏览器检查；截图保存于 `.runtime/nx-chat-preview.jpg`。原检索冒烟集仍为 6/6 通过。
+- 新增覆盖：会话绑定、参数 hash 校验、取消、过期、并发确认只领取一次、重复确认去重、超时 UNKNOWN、回执查询不重放、重启恢复、模型请求写入被拒绝、原子文件队列与无桥接时失败。
+- 模型 SDK HTTP 测试验证工具选项保留配置模型，且直接 ChatModel 不隐式执行 ToolCallback；真实 DeepSeek 工具调用已验证。
+- 真实 NX 写入、几何尺寸核验和 Undo 尚未完成验收；需用户在可丢弃零件上确认具体计划。没有以模拟写入或编译通过替代真实 CAD 写入验证。
+- [接入指南与生产差距](MCP_NX.md) 包含部署、API、工具合同、恢复和按优先级排列的改进建议。
+
 验证环境：Windows、JDK 17、本机 Qdrant 1.19.1、H2、2026-09-24。
 
 ## 已通过

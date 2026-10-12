@@ -36,6 +36,8 @@ Copy-Item .env.example .local.env
 
 聊天、Embedding、重排可以来自不同供应商。DeepSeek 等聊天端点不能自动当成 Embedding 端点。Embedding 的 URL、模型名、密钥、实际输出维度均需正确配置，具体变量见 [.env.example](.env.example)。
 
+当前本机已接入智谱 `embedding-3`（2048 维），演示文档已重新索引为 HYBRID。新环境可按 `.env.example` 的智谱配置填写自己的 Embedding 密钥；聊天仍使用 DeepSeek。相关片段会分别发送到配置的 Embedding 和聊天 API，原文件和检索数据保存在本地。
+
 先以关键词方式入库的文档，在配置 Embedding 后需要点击“重新索引”。修改 Embedding 的 URL、模型或维度也需要重新索引；程序用配置签名隔离 collection，避免新旧模型向量混用。
 
 ## 第一次体验
@@ -80,6 +82,7 @@ python scripts/evaluate.py
 - [API 集成合同](docs/API.md)
 - [配置、备份、恢复、部署](docs/OPERATIONS.md)
 - [验证记录与限制](docs/VALIDATION.md)
+- [NX 2512 MCP 接入与生产差距](docs/MCP_NX.md)：聊天中的实时建模模式、MCP Server、NX Open 桥接、确认与恢复流程。
 - [容器部署参考](compose.yaml)
 
 当前交付定位为**可运行、可测试、可集成的单实例 RAG 基座**。所有持有同一个服务令牌的调用方共享同一个知识库；尚未实现公司 SSO、用户级文档 ACL、多租户或多副本任务调度。嵌入式 Lucene 和本地文件需要单实例运行；扩容时可将关键词检索换为共享搜索服务、文件换为对象存储，并补充任务租约。

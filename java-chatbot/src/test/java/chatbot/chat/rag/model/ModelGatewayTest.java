@@ -50,6 +50,7 @@ class ModelGatewayTest {
                         """;
                     exchange.getResponseHeaders().set("Content-Type","text/event-stream");
                 } else {
+                    assertEquals("test-chat",body.path("model").asText());
                     response="""
                         {"id":"chat-test","object":"chat.completion","created":1,"model":"test-chat",
                         "choices":[{"index":0,"message":{"role":"assistant","content":"标准为650元。[1]"},"finish_reason":"stop"}],
@@ -73,6 +74,7 @@ class ModelGatewayTest {
             var gateway=new ModelGateway(properties,ObservationRegistry.NOOP);
             assertArrayEquals(new float[]{1,.5f,.25f},gateway.embed(List.of("费用标准")).get(0));
             assertEquals("标准为650元。[1]",gateway.answer(new Prompt("费用标准")));
+            assertEquals("标准为650元。[1]",gateway.tutorialAnswer(new Prompt("重排演示")));
             assertEquals("标准为650元。[1]",gateway.stream(new Prompt("费用标准")).collectList()
                 .map(parts->String.join("",parts)).block(Duration.ofSeconds(10)));
             var callback=new org.springframework.ai.tool.ToolCallback() {
@@ -82,7 +84,7 @@ class ModelGatewayTest {
                 public String call(String input) { fail("SDK must not execute tools implicitly");return ""; }
             };
             assertTrue(gateway.agentTurn(new Prompt("NX状态"),List.of(callback)).getResult().getOutput().hasToolCalls());
-            assertEquals(4,requests.get());
+            assertEquals(5,requests.get());
         } finally { server.stop(0); }
     }
 }

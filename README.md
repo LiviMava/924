@@ -50,6 +50,12 @@ Copy-Item .env.example .local.env
 
 文件最大 20 MiB；PDF 最多 500 页。当前不支持图片 OCR 和纯扫描 PDF，系统会给出明确错误。Word 引用保留章节，不虚构页码；PDF 引用使用原始物理页码。
 
+## RAG 教程与逐步实验
+
+打开 [RAG 教学实验室](http://127.0.0.1:8090/tutorial.html)，观察解析、分块、真实 Embedding 入库、向量召回、重排、Prompt 和生成的实际输入输出。Start-Local 自动启用本地教学接口，其他启动方式默认关闭；教学索引与公司知识库隔离。
+
+[完整讲义、七个独立 demo 和讲师安排](tutorial/README.md)。命令行完整流程：`./scripts/Invoke-RagTutorial.ps1 -Stage all`。独立重排默认实际调用聊天模型，另有明确标注的离线 BM25 对照；当前没有专用 Cross-Encoder 服务。
+
 ## 技术选择
 
 | 层 | 实现 |

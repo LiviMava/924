@@ -58,6 +58,12 @@ public class QdrantIndex implements VectorIndex {
         if (chunks.isEmpty()) return;
         initialize();
         var embeddings = models.embed(chunks.stream().map(ChunkRecord::text).toList());
+        addWithEmbeddings(chunks, embeddings);
+    }
+    /** Reuse already computed vectors; tutorial can expose the exact vectors sent to Qdrant. */
+    public void addWithEmbeddings(List<ChunkRecord> chunks, List<float[]> embeddings) {
+        if (chunks.isEmpty()) return;
+        initialize();
         if (embeddings.size() != chunks.size()) throw new IllegalStateException("Embedding 返回数量不匹配");
         List<Object> points = new ArrayList<>();
         for (int i = 0; i < chunks.size(); i++) {
@@ -70,13 +76,31 @@ public class QdrantIndex implements VectorIndex {
     }
     public List<Match> search(String query, int limit) {
         initialize();
-        float[] vector = models.embed(List.of(query)).get(0); validate(vector);
+        float[] vector = models.embed(List.of(query)).get(0);
+        return searchWithVector(vector,limit,properties.retrieval().minVectorScore());
+    }
+    public List<Match> searchWithVector(float[] vector,int limit,double threshold) {
+        if(limit<1 || limit>100 || !Double.isFinite(threshold) || threshold < -1 || threshold > 1)
+            throw new IllegalArgumentException("无效向量查询范围");
+        initialize();validate(vector);
         JsonNode hits = checked(request("POST", "/collections/" + collection + "/points/query",
             Map.of("query", vector, "limit", limit, "with_payload", false,
-                "score_threshold", properties.retrieval().minVectorScore()))).path("result").path("points");
+                "score_threshold", threshold))).path("result").path("points");
         List<Match> result = new ArrayList<>();
         hits.forEach(hit -> result.add(new Match(hit.path("id").asText(), hit.path("score").asDouble())));
         return result;
+    }
+    public Map<String,Object> statistics() {
+        JsonNode result=checked(request("GET","/collections/"+collection,null)).path("result");
+        return Map.of("collection",collection,"pointsCount",result.path("points_count").asLong(),
+            "dimensions",result.path("config").path("params").path("vectors").path("size").asInt(),"distance","Cosine");
+    }
+    /** Deliberately limited to isolated tutorial collections, never the company knowledge base. */
+    public void deleteTutorialCollection() {
+        if(!collection.startsWith("rag_tutorial_")) throw new IllegalStateException("只能清理教学 collection");
+        var response=request("DELETE","/collections/"+collection,null);
+        if(response.statusCode()!=404) checked(response);
+        initialized=false;
     }
     public void deleteDocument(String targetCollection, String documentId) {
         if (targetCollection == null || targetCollection.isBlank()) return;

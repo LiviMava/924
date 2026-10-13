@@ -120,3 +120,24 @@ const response = await fetch('/api/v1/chat/stream', {
 GET /actuator/health用于应用/数据库健康检查；GET /api/v1/system额外返回vectorHealthy与模型“是否配置”（不代表凭据已经通过云端验证）。配置服务令牌时GET /actuator/prometheus也需要同一令牌。自定义指标包含rag.retrieval.duration与rag.retrieval.fallback，Spring AI模型调用接入Micrometer Observation。
 
 健康检查成功不表示问答模型可用；部署验收应包含一次真实文档上传与问答。
+## RAG 教学实验 API
+
+接口前缀 `/api/v1/tutorial`，需 `rag.tutorial.enabled=true`。沿用服务 Bearer；所有 run 必须使用创建它的同一会话 cookie。教学页面静态文件可公开读取，实验数据与操作接口仍按 API 鉴权。
+
+| 路径 | 输入 / 作用 |
+|---|---|
+| GET /config | 配置状态与教学限制，不返回密钥 |
+| GET /samples/{md\|docx\|pdf} | 下载真实示例文件 |
+| POST /runs | `{sample:"md"}` 创建实验，返回 runId |
+| POST /runs/upload | multipart `file`；教学上传上限 2 MiB |
+| GET /runs/{id} | 当前实验所有已完成阶段 |
+| POST /runs/{id}/parse | 真实文件解析 |
+| POST /runs/{id}/chunk | `{size:220,overlap:40}` |
+| POST /runs/{id}/embed | 真实 Embedding + 独立 Qdrant 入库 |
+| POST /runs/{id}/retrieve | `{query:"…",topK:5,threshold:0}` |
+| POST /runs/{id}/rerank | `{query:"…",method:"llm\|bm25\|configured",source:"retrieved\|fixture"}` |
+| POST /runs/{id}/prompt | `{question:"…",topK:3,source:"ranked\|retrieved\|fixture"}` |
+| POST /runs/{id}/generate | 使用刚组装的 Prompt 调用真实聊天模型 |
+| DELETE /runs/{id} | 清理本实验向量、上传的临时文件和状态 |
+
+每步统一返回 `runId/stage/mode/input/output/notes/elapsedMs`。无前置数据或问题已变化返回 409；参数无效返回 400；其他会话返回 404；已过期返回 410。LLM 重排输出完整候选排列，不输出伪造分数；BM25 模式明确标为关键词基线。详细说明见 [教程](../tutorial/README.md)。

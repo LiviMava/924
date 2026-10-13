@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RAG 教学实验室 · 知序</title><link rel="stylesheet" href="/tutorial.css"><script src="/tutorial.js" defer></script></head>
+<body>
+<header class="topbar"><a class="brand" href="/">知序 <span>RAG LAB</span></a><span class="top-note">原理 × 实际输入 × 实际输出</span><a href="/">返回知识库 ↗</a></header>
+<main>
+  <section class="hero"><div><span class="eyebrow">从文档到答案 · 七个可运行实验</span><h1>看见一个答案<br>是怎样诞生的。</h1><p>拆开 RAG 的每一步。改变参数，观察结果，再把它们连接起来。</p></div><div class="hero-note"><span class="live-dot"></span>真实模型 · 真实向量库<p>解析和分块在本地运行。Embedding、LLM 重排和回答会调用已配置的云端 API。</p><small>所有内置资料都是虚构教学数据。</small></div></section>
+  <section class="setup" aria-label="实验资料"><div><label for="sample">实验资料</label><select id="sample"><option value="md">员工手册 · Markdown（中文）</option><option value="docx">员工手册 · Word（中文＋表格）</option><option value="pdf">员工手册 · PDF（英文，两页）</option></select></div><button id="prepare" class="primary">准备示例</button><label class="upload">或上传文档<input id="upload" type="file" accept=".pdf,.docx,.doc,.txt,.md"></label><a id="download-sample" href="/api/v1/tutorial/samples/md">下载原文件 ↗</a><button id="clear" class="quiet" disabled>清理实验</button><span id="run-status">尚未创建实验</span></section>
+  <div id="service-status" class="service-status" role="status">正在检查教学服务…</div>
+  <div class="lab-layout"><aside><nav id="steps" aria-label="RAG 链路"></nav><div class="aside-note"><strong>先离线，再连模型</strong><p>01、02、06 可在本地演示。05 可选择关键词对照。03、04、07 需要配置真实模型。</p><button id="run-all" class="primary">运行整条链路 ↗</button><p>完整流程默认使用 LLM 重排，约需几十秒；会产生模型调用费用。</p></div></aside>
+  <section class="lesson" aria-live="polite"><div class="lesson-heading"><span id="lesson-number" class="eyebrow"></span><h2 id="lesson-title"></h2><p id="lesson-summary"></p></div>
+    <div class="principle"><strong>这一步为什么存在？</strong><p id="principle"></p><div id="experiment-tip" class="experiment-tip"></div></div>
+    <div class="io-grid"><section class="panel input-panel"><div class="panel-heading"><span>INPUT</span><h3>输入与参数</h3></div><div id="controls"></div><div id="input-preview" class="preview"></div><button id="execute" class="primary">运行当前实验 →</button><p id="execution-hint" class="muted"></p></section><section class="panel output-panel"><div class="panel-heading"><span>OUTPUT</span><h3>实际输出</h3><span id="output-meta"></span></div><div id="output"><div class="empty">运行这一步，观察数据如何变化。</div></div></section></div>
+    <div id="error" class="error" role="alert" hidden></div><details class="raw"><summary>查看本步完整输入 / 输出 JSON</summary><button id="export-stage" class="quiet" disabled>下载 JSON</button><pre id="raw-json">尚无结果</pre></details>
+  </section></div>
+  <footer><p>教学索引与公司知识库隔离。实验保留 30 分钟；可主动清理。服务重启后需重新创建实验。</p><button id="export-all" class="quiet" disabled>导出本轮全部实验结果 ↓</button></footer>
+</main>
+</body></html>

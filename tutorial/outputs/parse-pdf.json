@@ -1,0 +1,29 @@
+{
+  "runId": "9866af55-dabc-4336-b6b7-54f6da432fb4",
+  "stage": "parse",
+  "mode": "LOCAL_PARSER",
+  "input": {
+    "filename": "demo-handbook.pdf"
+  },
+  "output": {
+    "sections": [
+      {
+        "text": "Fictional company handbook - teaching fixture\nPage 1: travel accommodation\nShanghai: hotel reimbursement up to CNY 650 per person per night.\nBeijing: up to CNY 550 per person per night.\nOther cities: up to CNY 450 per person per night.\nMeals and transport are separate expenses.\nAmounts above the cap need prior written approval.",
+        "page": 1,
+        "section": "第1页"
+      },
+      {
+        "text": "Page 2: reimbursement procedure\nSubmit within 15 working days after the trip.\nRequired: hotel invoice, travel approval and expense details.\nManager reviews the trip; finance checks invoices and limits.\nShanghai office meeting meals: CNY 80 per person.\nThis meeting budget is not the hotel reimbursement cap.",
+        "page": 2,
+        "section": "第2页"
+      }
+    ],
+    "characters": 636,
+    "sectionCount": 2
+  },
+  "notes": [
+    "复用生产 DocumentParser；PDF 保留物理页码，Word 保留章节与表格顺序，不虚构 Word 页码。",
+    "PDF 示例为英文文本；Word 和 Markdown 示例为中文。扫描 PDF 需要 OCR，当前不支持。"
+  ],
+  "elapsedMs": 84
+}

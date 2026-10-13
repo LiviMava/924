@@ -30,6 +30,7 @@ class RagApiIntegrationTest {
         p.add("spring.servlet.multipart.location",()->data.resolve("tmp").toString());
         p.add("spring.datasource.url",()->"jdbc:h2:mem:rag_api;MODE=PostgreSQL;DB_CLOSE_DELAY=-1");
         p.add("rag.api-key",()->"integration-test-token");
+        p.add("rag.tutorial.enabled",()->"false");
         p.add("rag.worker-initial-delay-ms",()->"3600000");
         p.add("rag.worker-delay-ms",()->"3600000");
     }
@@ -48,6 +49,7 @@ class RagApiIntegrationTest {
         when(vectors.collection()).thenReturn("test_collection");
     }
     @Test void uploadSearchAnswerReindexDeleteAndAuthentication() throws Exception {
+        assertEquals(404,call("GET","/api/v1/tutorial/config",null,true).statusCode(),"教学 API 默认关闭");
         assertEquals(401,call("GET","/api/v1/documents",null,false).statusCode());
         assertTrue(call("GET","/%61pi/v1/documents",null,false).statusCode()>=400);
         assertTrue(call("GET","/api;v=1/v1/documents",null,false).statusCode()>=400);

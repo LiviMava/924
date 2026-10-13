@@ -39,6 +39,15 @@ public class ModelGateway {
         var response = chat.call(prompt);
         return response.getResult().getOutput().getText();
     }
+    /** A bounded text-only call for listwise teaching demos; never installs executable tools. */
+    public String tutorialAnswer(Prompt prompt) {
+        if(chat==null) throw new IllegalStateException("聊天模型尚未配置");
+        var options=OpenAiChatOptions.builder().model(chat.getOptions().getModel())
+            .timeout(Duration.ofSeconds(45)).maxRetries(0);
+        if(deepSeekToolMode) options.extraBody(java.util.Map.of("thinking",java.util.Map.of("type","disabled")));
+        var response=chat.call(new Prompt(prompt.getInstructions(),options.build()));
+        return response.getResult().getOutput().getText();
+    }
     /** Return native tool calls to the host; the model SDK must never execute them implicitly. */
     public org.springframework.ai.chat.model.ChatResponse agentTurn(Prompt prompt,List<org.springframework.ai.tool.ToolCallback> tools) {
         return agentTurn(prompt,tools,Duration.ofSeconds(45));

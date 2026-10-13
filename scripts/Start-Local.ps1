@@ -61,6 +61,7 @@ try {
         $env:SERVER_ADDRESS = '127.0.0.1'
         $env:SERVER_PORT = '8090'
         $env:SPRING_PROFILES_ACTIVE = 'local'
+        $env:RAG_TUTORIAL_ENABLED = 'true'
         $appProcess = Start-Process -FilePath $java -ArgumentList @('-jar', ('"' + $jar + '"')) `
             -WorkingDirectory $script:WorkspaceRoot -WindowStyle Hidden -PassThru `
             -RedirectStandardOutput (Get-LocalPath '.runtime/logs/app.stdout.log') `

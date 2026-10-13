@@ -33,7 +33,7 @@ public class ApiAccessFilter extends OncePerRequestFilter {
             // route except an explicit read-only public allowlist, including encoded/matrix URLs.
             String path=request.getServletPath();
             boolean publicPath=request.getMethod().equals("GET") && (Set.of("/", "/index.html", "/rag.js", "/rag.css",
-                "/favicon.ico", "/api/v1/system", "/actuator/health", "/swagger-ui.html", "/v3/api-docs").contains(path)
+                "/tutorial.html", "/tutorial.js", "/tutorial.css", "/favicon.ico", "/api/v1/system", "/actuator/health", "/swagger-ui.html", "/v3/api-docs").contains(path)
                 || path.startsWith("/swagger-ui/") || path.startsWith("/v3/api-docs/"));
             boolean protectedPath=!publicPath;
             if (protectedPath) response.setHeader("Cache-Control","no-store");

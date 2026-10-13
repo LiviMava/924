@@ -1,6 +1,26 @@
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
+  const themeKey='zhixu.rag.theme';
+  const systemTheme=window.matchMedia('(prefers-color-scheme: dark)');
+  let preferredTheme;
+  try { preferredTheme=localStorage.getItem(themeKey); } catch (_) {}
+  function applyTheme(theme) {
+    const dark=theme==='dark';document.documentElement.dataset.theme=theme;
+    $('theme-toggle').setAttribute('aria-pressed',String(dark));
+    $('theme-toggle').title=dark?'当前为暗色，切换到亮色主题':'当前为亮色，切换到暗色主题';
+    $('theme-label').textContent=dark?'亮色主题':'暗色主题';
+  }
+  const validTheme=theme=>theme==='dark'||theme==='light';
+  applyTheme(validTheme(preferredTheme)?preferredTheme:systemTheme.matches?'dark':'light');
+  $('theme-toggle').onclick=()=>{
+    preferredTheme=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme(preferredTheme);
+    try { localStorage.setItem(themeKey,preferredTheme); } catch (_) {}
+  };
+  systemTheme.addEventListener('change',event=>{if(!validTheme(preferredTheme))applyTheme(event.matches?'dark':'light');});
+  window.addEventListener('storage',event=>{
+    if(event.key===themeKey) { preferredTheme=event.newValue;applyTheme(validTheme(preferredTheme)?preferredTheme:systemTheme.matches?'dark':'light'); }
+  });
   const lessons = [
     ['parse','文档解析','把文件变成带来源位置的文字。','PDF、Word 是文件容器。检索需要其中的文字，还需要保留页码或章节，才能把答案追溯到原文。','试试 Word：表格会变成文字行；试试两页 PDF：观察 page 从 1 开始。'],
     ['chunk','分块','把长文档切成可检索、可引用的片段。','片段太长会混入无关信息，太短可能丢失上下文。重叠保留边界信息，段落和章节决定怎样切得更自然。','把 220/40 改成 800/120，比较片段数量。黄色标记表示与上一片段相同的前缀。'],

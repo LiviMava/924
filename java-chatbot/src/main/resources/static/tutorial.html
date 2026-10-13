@@ -1,8 +1,15 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RAG 教学实验室 · 知序</title><link rel="stylesheet" href="/tutorial.css"><script src="/tutorial.js" defer></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>RAG 教学实验室 · 知序</title>
+<script>
+(() => {
+  let saved;try { saved=localStorage.getItem('zhixu.rag.theme'); } catch (_) {}
+  document.documentElement.dataset.theme=saved==='dark'||(saved!=='light'&&window.matchMedia?.('(prefers-color-scheme: dark)').matches)?'dark':'light';
+})();
+</script>
+<link rel="stylesheet" href="/tutorial.css"><script src="/tutorial.js" defer></script></head>
 <body>
-<header class="topbar"><a class="brand" href="/">知序 <span>RAG LAB</span></a><span class="top-note">原理 × 实际输入 × 实际输出</span><a href="/">返回知识库 ↗</a></header>
+<header class="topbar"><a class="brand" href="/">知序 <span>RAG LAB</span></a><span class="top-note">原理 × 实际输入 × 实际输出</span><div class="top-actions"><button id="theme-toggle" type="button" class="theme-toggle" aria-label="切换明暗主题" aria-pressed="false"><svg id="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4 14.1A8.6 8.6 0 0 1 9.9 3.6 8.7 8.7 0 1 0 20.4 14.1Z"/></svg><svg id="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg><span id="theme-label">暗色主题</span></button><a href="/">返回知识库 ↗</a></div></header>
 <main>
   <section class="hero"><div><span class="eyebrow">从文档到答案 · 七个可运行实验</span><h1>看见一个答案<br>是怎样诞生的。</h1><p>拆开 RAG 的每一步。改变参数，观察结果，再把它们连接起来。</p></div><div class="hero-note"><span class="live-dot"></span>真实模型 · 真实向量库<p>解析和分块在本地运行。Embedding、LLM 重排和回答会调用已配置的云端 API。</p><small>所有内置资料都是虚构教学数据。</small></div></section>
   <section class="setup" aria-label="实验资料"><div><label for="sample">实验资料</label><select id="sample"><option value="md">员工手册 · Markdown（中文）</option><option value="docx">员工手册 · Word（中文＋表格）</option><option value="pdf">员工手册 · PDF（英文，两页）</option></select></div><button id="prepare" class="primary">准备示例</button><label class="upload">或上传文档<input id="upload" type="file" accept=".pdf,.docx,.doc,.txt,.md"></label><a id="download-sample" href="/api/v1/tutorial/samples/md">下载原文件 ↗</a><button id="clear" class="quiet" disabled>清理实验</button><span id="run-status">尚未创建实验</span></section>

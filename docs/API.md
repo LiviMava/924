@@ -41,6 +41,8 @@ POST /api/v1/search
 
 query长度1–2000字符，topK范围1–12，默认6。返回：
 
+可选 `documentId` 为文档 UUID；传入后，BM25 和向量检索都在获取 Top-K **之前**限定该文档。不传则搜索整个知识库；文档不存在或未 READY 时返回空命中和警告。该参数是检索范围，不是用户权限边界。
+
 ```json
 {
   "query":"上海出差的住宿报销标准？",
@@ -58,7 +60,7 @@ query长度1–2000字符，topK范围1–12，默认6。返回：
 }
 ```
 
-retrievalMode可能为LEXICAL、HYBRID或相应的_RERANKED。warnings描述未配置或降级，不应在集成侧忽略。score随模式含义不同，RRF分数不能当作置信度。
+retrievalMode可能为 NONE、LEXICAL、HYBRID 或相应的 `_RERANKED`（HTTP 服务）、`_LLM_RERANKED`（聊天模型重排）。warnings描述未配置或降级，不应在集成侧忽略。score随模式含义不同，RRF分数不能当作置信度。LLM 模式只改变顺序，保留原 RRF 分数；异常时降级到 RRF 并发出警告，不会标记为已重排。
 
 ## 问答
 
@@ -75,6 +77,8 @@ POST /api/v1/chat，或POST /api/v1/chat/stream。
 ```
 
 question长度1–2000。history可省略；最多20条，role只能为user/assistant，content每条1–8000字符、合计不超过24000。调用方负责其用户身份与会话归属；服务端不存会话。
+
+普通和流式问答均接受可选 `documentId`，与独立检索的范围语义一致。例如 `{"question":"该机构的入职考察期多久？","history":[],"documentId":"文档 UUID"}`。多机构手册实验默认限定所选手册，避免把其他机构的制度作为答案。
 
 普通返回：
 
@@ -127,9 +131,11 @@ GET /actuator/health用于应用/数据库健康检查；GET /api/v1/system额�
 | 路径 | 输入 / 作用 |
 |---|---|
 | GET /config | 配置状态与教学限制，不返回密钥 |
+| GET /handbooks | 本地公开手册目录、当前入库状态、问题集与最近一次真实评测结果 |
 | GET /samples/{md\|docx\|pdf} | 下载真实示例文件 |
 | POST /runs | `{sample:"md"}` 创建实验，返回 runId |
 | POST /runs/upload | multipart `file`；教学上传上限 2 MiB |
+| POST /runs/from-document | `{documentId:"UUID",fromPage:12,toPage:12}`；将已 READY 的 PDF 快照放入实验，仅展示连续 1–3 个物理页 |
 | GET /runs/{id} | 当前实验所有已完成阶段 |
 | POST /runs/{id}/parse | 真实文件解析 |
 | POST /runs/{id}/chunk | `{size:220,overlap:40}` |
@@ -141,3 +147,5 @@ GET /actuator/health用于应用/数据库健康检查；GET /api/v1/system额�
 | DELETE /runs/{id} | 清理本实验向量、上传的临时文件和状态 |
 
 每步统一返回 `runId/stage/mode/input/output/notes/elapsedMs`。无前置数据或问题已变化返回 409；参数无效返回 400；其他会话返回 404；已过期返回 410。LLM 重排输出完整候选排列，不输出伪造分数；BM25 模式明确标为关键词基线。详细说明见 [教程](../tutorial/README.md)。
+
+`from-document` 只从文档服务取得已经校验过的本地文件，客户端不能指定服务器路径。它保留原始物理页码，使用独立实验 collection；不重新上传整份手册，也不改变正式索引。来源清单默认读取 `.runtime/handbooks`，可通过 `RAG_HANDBOOK_DIR` 配置。

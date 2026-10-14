@@ -10,5 +10,9 @@ public interface VectorIndex {
     String collection();
     void add(List<ChunkRecord> chunks);
     List<Match> search(String query, int limit);
+    default List<Match> search(String query,int limit,String documentId) {
+        if(documentId!=null)throw new UnsupportedOperationException("Vector index does not support document filtering");
+        return search(query,limit);
+    }
     void deleteDocument(String collection, String documentId);
 }

@@ -16,6 +16,8 @@ import java.util.*;
 @Component
 public class IngestionWorker {
     private static final Logger log = LoggerFactory.getLogger(IngestionWorker.class);
+    @org.springframework.beans.factory.annotation.Value("${rag.ingestion.batch-size:16}")
+    private int embeddingBatchSize = 16;
     private final DocumentRepository repository;
     private final DocumentService documents;
     private final DocumentParser parser;
@@ -47,9 +49,10 @@ public class IngestionWorker {
                 boolean hybrid = vectors.configured();
                 repository.indexing(doc.id(), hybrid ? "HYBRID" : "LEXICAL", hybrid ? vectors.collection() : null);
                 if (hybrid) {
-                    for (int i=0; i<chunks.size(); i+=16) {
+                    int batchSize = Math.max(1, Math.min(64, embeddingBatchSize));
+                    for (int i=0; i<chunks.size(); i+=batchSize) {
                         if (!processing(doc.id())) break;
-                        vectors.add(chunks.subList(i, Math.min(i+16, chunks.size())));
+                        vectors.add(chunks.subList(i, Math.min(i+batchSize, chunks.size())));
                     }
                 }
                 if (!processing(doc.id())) continue;

@@ -75,17 +75,23 @@ public class QdrantIndex implements VectorIndex {
         checked(request("PUT", "/collections/" + collection + "/points?wait=true", Map.of("points", points)));
     }
     public List<Match> search(String query, int limit) {
+        return search(query,limit,null);
+    }
+    public List<Match> search(String query,int limit,String documentId) {
         initialize();
         float[] vector = models.embed(List.of(query)).get(0);
-        return searchWithVector(vector,limit,properties.retrieval().minVectorScore());
+        return searchWithVector(vector,limit,properties.retrieval().minVectorScore(),documentId);
     }
     public List<Match> searchWithVector(float[] vector,int limit,double threshold) {
+        return searchWithVector(vector,limit,threshold,null);
+    }
+    private List<Match> searchWithVector(float[] vector,int limit,double threshold,String documentId) {
         if(limit<1 || limit>100 || !Double.isFinite(threshold) || threshold < -1 || threshold > 1)
             throw new IllegalArgumentException("无效向量查询范围");
         initialize();validate(vector);
-        JsonNode hits = checked(request("POST", "/collections/" + collection + "/points/query",
-            Map.of("query", vector, "limit", limit, "with_payload", false,
-                "score_threshold", threshold))).path("result").path("points");
+        Map<String,Object> body=new HashMap<>(Map.of("query",vector,"limit",limit,"with_payload",false,"score_threshold",threshold));
+        if(documentId!=null)body.put("filter",Map.of("must",List.of(Map.of("key","documentId","match",Map.of("value",documentId)))));
+        JsonNode hits = checked(request("POST", "/collections/" + collection + "/points/query",body)).path("result").path("points");
         List<Match> result = new ArrayList<>();
         hits.forEach(hit -> result.add(new Match(hit.path("id").asText(), hit.path("score").asDouble())));
         return result;

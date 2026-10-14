@@ -41,6 +41,10 @@ public class ModelGateway {
     }
     /** A bounded text-only call for listwise teaching demos; never installs executable tools. */
     public String tutorialAnswer(Prompt prompt) {
+        return boundedAnswer(prompt);
+    }
+    public String rankingAnswer(Prompt prompt) { return boundedAnswer(prompt); }
+    private String boundedAnswer(Prompt prompt) {
         if(chat==null) throw new IllegalStateException("聊天模型尚未配置");
         var options=OpenAiChatOptions.builder().model(chat.getOptions().getModel())
             .timeout(Duration.ofSeconds(45)).maxRetries(0);

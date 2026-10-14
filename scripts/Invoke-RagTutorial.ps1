@@ -5,8 +5,12 @@ param(
     [ValidateSet('llm','bm25','configured')] [string] $RerankMethod = 'llm',
     [string] $Query = '去上海出差，酒店每晚最高能报销多少钱？',
     [int] $Size = 220, [int] $Overlap = 40, [int] $TopK = 5, [double] $Threshold = 0,
-    [string] $BaseUrl = 'http://127.0.0.1:8090'
+    [string] $BaseUrl = 'http://127.0.0.1:8090',
+    [string] $DocumentId = '',
+    [ValidateRange(1,500)] [int] $FromPage = 1,
+    [ValidateRange(1,500)] [int] $ToPage = 1
 )
+if ($DocumentId -and $Stage -ne 'all') { throw 'DocumentId requires Stage all so every step uses the selected real document.' }
 . (Join-Path $PSScriptRoot 'Local-Common.ps1')
 Import-LocalEnvironment
 $tutorialUri = [Uri]$BaseUrl
@@ -38,7 +42,9 @@ $tutorialRun = $null
 $completed = @()
 $utf8 = New-Object Text.UTF8Encoding($false)
 try {
-    $tutorialRun = Invoke-TutorialApi '/runs' @{ sample = $Sample }
+    $tutorialRun = if ($DocumentId) {
+        Invoke-TutorialApi '/runs/from-document' @{ documentId = $DocumentId; fromPage = $FromPage; toPage = $ToPage }
+    } else { Invoke-TutorialApi '/runs' @{ sample = $Sample } }
     [IO.File]::WriteAllText((Join-Path $outputRoot '00-source.json'), ($tutorialRun | ConvertTo-Json -Depth 20), $utf8)
     foreach ($step in $plan) {
         $body = switch ($step) {
@@ -60,6 +66,6 @@ try {
         try { $null = Invoke-TutorialApi ('/runs/' + $tutorialRun.runId) $null 'DELETE'; $cleaned = $true }
         catch { Write-Warning 'Tutorial cleanup was not confirmed. See the run ID in 00-source.json; no automatic replay was performed.' }
     }
-    [IO.File]::WriteAllText((Join-Path $outputRoot 'manifest.json'), (@{ stage = $Stage; sample = $Sample; completed = $completed; cleaned = $cleaned; recordedAtUtc = [DateTime]::UtcNow.ToString('o') } | ConvertTo-Json), $utf8)
+    [IO.File]::WriteAllText((Join-Path $outputRoot 'manifest.json'), (@{ stage = $Stage; sample = $(if ($DocumentId) { $null } else { $Sample }); documentId = $DocumentId; fromPage = $FromPage; toPage = $ToPage; completed = $completed; cleaned = $cleaned; recordedAtUtc = [DateTime]::UtcNow.ToString('o') } | ConvertTo-Json), $utf8)
 }
 [pscustomobject]@{ OutputDirectory = $outputRoot; Completed = $completed; Cleaned = $cleaned }

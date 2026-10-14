@@ -1,0 +1,73 @@
+[
+  {
+    "id": "HB01", "publisher": "Carnegie Mellon University", "scope": "document",
+    "query": "According to Carnegie Mellon's staff handbook, how long are unpaid meal periods and how much paid break time may be scheduled per day?",
+    "expected_document": "cmu-edu-b802e0ea27.pdf", "sourcePages": [12],
+    "sourcePatterns": ["half.hour", "one hour", "15 minutes"],
+    "answerPatterns": ["(?:30|half.an?.hour|half.hour|half an hour)", "(?:60|one hour|1 hour)", "15", "unpaid", "paid"],
+    "expectedAnswer": "Meal periods are unpaid, at least half an hour and at most one hour. Scheduled paid breaks are optional and limited to 15 minutes per day."
+  },
+  {
+    "id": "HB02", "publisher": "University of Indianapolis", "scope": "document",
+    "query": "At the University of Indianapolis, how long is the introductory period for new exempt and non-exempt staff, excluding police officers?",
+    "expected_document": "uindy-edu-200a2479e9.pdf", "sourcePages": [25],
+    "sourcePatterns": ["six \\(6\\) months", "exempt and non.exempt"],
+    "answerPatterns": ["(?:six|6).{0,15}months|(?:6|六).{0,6}个?月"],
+    "expectedAnswer": "Six months for exempt and non-exempt staff; successful evaluation completes the introductory period."
+  },
+  {
+    "id": "HB03", "publisher": "Northeast Ohio Medical University", "scope": "document",
+    "query": "According to NEOMED's employee handbook, how many paid holidays does the university compensate employees for each year?",
+    "expected_document": "neomed-edu-fc95f5c63f.pdf", "sourcePages": [17],
+    "sourcePatterns": ["ten paid holidays"], "answerPatterns": ["(?:ten|10).{0,30}(?:paid )?holidays"],
+    "expectedAnswer": "Ten paid holidays per year, including two floating holidays."
+  },
+  {
+    "id": "HB04", "publisher": "Forty-Niner Shops at CSU Long Beach", "scope": "document",
+    "query": "Under the Forty-Niner Shops handbook, how long is each rest break for a non-exempt employee and how many hours of work earn one rest break?",
+    "expected_document": "csulb-edu-0d75e0b7fc.pdf", "sourcePages": [13],
+    "sourcePatterns": ["15.minute rest break", "four \\(4\\) hours"],
+    "answerPatterns": ["(?:15|十五).{0,15}(?:minute|分钟)", "(?:four|4|四).{0,15}(?:hours|小时)"],
+    "expectedAnswer": "One paid 15-minute rest break for every four hours worked; shifts shorter than 3.5 hours need not have a rest break."
+  },
+  {
+    "id": "HB05", "publisher": "Rocky Vista University", "scope": "document",
+    "query": "At Rocky Vista University, if additional time is needed for bereavement, how many days of accrued sick leave may be converted to bereavement leave?",
+    "expected_document": "employeehandbook-rvu-edu-d7f39c098b.pdf", "sourcePages": [16],
+    "sourcePatterns": ["three \\(3\\) days", "accrued sick leave"],
+    "answerPatterns": ["(?:three|3).{0,15}days", "sick leave"],
+    "expectedAnswer": "Three days of accrued sick leave may be converted; additional time can use vacation."
+  },
+  {
+    "id": "HB06", "publisher": "Carnegie Mellon University", "scope": "document",
+    "query": "What tuition percentage and course-count benefit does Carnegie Mellon provide eligible full-time staff taking courses at CMU, and what tuition percentage does it pay for qualifying courses at other institutions?",
+    "expected_document": "cmu-edu-b802e0ea27.pdf", "sourcePages": [26],
+    "sourcePatterns": ["100%", "two courses", "50%"],
+    "answerPatterns": ["100\\s*%", "(?:two|2).{0,20}courses", "50\\s*%"],
+    "expectedAnswer": "100% tuition remission for up to two CMU courses at one time; 50% of tuition for credit-bearing, career-related courses elsewhere."
+  },
+  {
+    "id": "HB07", "publisher": "University of Indianapolis", "scope": "document",
+    "query": "印第安纳波利斯大学（University of Indianapolis）的普通新员工入职考察期 introductory period 是多久？这里不问警察岗位。请用中文回答。",
+    "expected_document": "uindy-edu-200a2479e9.pdf", "sourcePages": [25],
+    "sourcePatterns": ["six \\(6\\) months"],
+    "answerPatterns": ["(?:6|六)\\s*个?月"],
+    "expectedAnswer": "普通 exempt 和 non-exempt 员工为六个月。"
+  },
+  {
+    "id": "HB08", "publisher": "Carnegie Mellon University", "scope": "document", "negative": true,
+    "query": "CMU 在 2029 年给派驻火星基地的员工发多少美元月度津贴？请仅依据这份员工手册回答。",
+    "expected_document": "cmu-edu-b802e0ea27.pdf", "sourcePages": [], "sourcePatterns": [],
+    "answerPatterns": ["(?:无法|不能|没有|未.{0,16}(?:提供|提及|说明|找到|包含))"],
+    "forbiddenPatterns": ["(?:津贴|补贴)(?:为|是|标准为)\\s*\\d"],
+    "expectedAnswer": "手册无依据，应说明无法确认，不编造金额。"
+  },
+  {
+    "id": "HB09", "publisher": "Carnegie Mellon University", "scope": "document", "negative": true,
+    "query": "我听说 CMU 员工去上海出差的酒店上限是每晚 650 元。这份 CMU 员工手册是否能证明这个金额？请用中文回答，不要借用其他公司的规定。",
+    "expected_document": "cmu-edu-b802e0ea27.pdf", "sourcePages": [], "sourcePatterns": [],
+    "answerPatterns": ["(?:无法|不能|没有|未.{0,16}(?:提供|提及|说明|找到|包含)|不支持)"],
+    "forbiddenPatterns": ["(?:标准|上限)(?:为|是|规定为)\\s*650"],
+    "expectedAnswer": "不能证实；不得将虚构教学手册中的 650 元套用给 CMU。"
+  }
+]

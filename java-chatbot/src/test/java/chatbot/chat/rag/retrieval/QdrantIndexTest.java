@@ -108,6 +108,17 @@ class QdrantIndexTest {
     }
 
     @Test
+    void filtersByDocumentBeforeVectorTopK() {
+        when(models.embed(List.of("allowance"))).thenReturn(List.of(new float[]{1,.5f,.25f}));
+        index("embed-v1",3).search("allowance",4,DOCUMENT_ID);
+        var query=requests.stream().filter(r->r.path().endsWith("/points/query")).findFirst().orElseThrow().body();
+        assertEquals(4,query.path("limit").asInt());
+        var condition=query.path("filter").path("must").get(0);
+        assertEquals("documentId",condition.path("key").asText());
+        assertEquals(DOCUMENT_ID,condition.path("match").path("value").asText());
+    }
+
+    @Test
     void mismatchingStoredCollectionSchemaPreventsEmbeddingAndUpsert() {
         collectionExists = true;
         storedDimensions = 8;

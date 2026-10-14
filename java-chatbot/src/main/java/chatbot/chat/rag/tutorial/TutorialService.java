@@ -50,6 +50,7 @@ public class TutorialService {
         List<ChunkRecord> records=List.of();List<float[]> vectors=List.of();
         List<SearchHit> recalled=List.of(),ranked=List.of(),evidence=List.of();
         String query="",recalledQuery="",rankedQuery="";Prompt prompt;boolean indexTouched;
+        int fromPage=0,toPage=0;
         Run(String owner,Path source,String filename,boolean uploaded,Function<String,QdrantIndex> factory) {
             this.owner=owner;this.source=source;this.filename=filename;this.uploaded=uploaded;index=factory.apply(id);
         }
@@ -63,7 +64,7 @@ public class TutorialService {
             "rerankerConfigured",reranker.configured(),"samples",List.of("md","docx","pdf"),
             "limits",Map.of("maxRuns",MAX_RUNS,"maxChunks",MAX_CHUNKS,"maxTextCharacters",MAX_TEXT,"ttlMinutes",30),
             "embeddingModel",properties.embedding().model(),"embeddingDimensions",properties.embedding().dimensions(),
-            "chatModel",properties.chat().model(),"rerankMethods",List.of("llm","bm25","configured"));
+            "chatModel",properties.chat().model(),"rerankMethods",List.of("llm","bm25","configured"),"productionRerankMode",reranker.mode());
     }
     public synchronized Path sample(String kind) throws java.io.IOException { return TutorialFixtures.create(root.resolve("samples"),kind); }
     private QdrantIndex index(String id) {
@@ -88,15 +89,29 @@ public class TutorialService {
             file.transferTo(path);var run=new Run(owner,path,name,true,this::index);runs.put(run.id,run);return created(run);
         } catch(Exception e) { Files.deleteIfExists(path);throw e; }
     }
+    /** Snapshot a locally indexed PDF. Page selection is explicit and preserves physical page numbers. */
+    public synchronized Object fromDocument(String owner,Path source,String filename,int fromPage,int toPage) throws java.io.IOException {
+        ensureCapacity();
+        if(!filename.toLowerCase(Locale.ROOT).endsWith(".pdf") || fromPage<1 || toPage<fromPage || toPage-fromPage>2)
+            throw new IllegalArgumentException("请选择 PDF 的连续 1–3 页");
+        Files.createDirectories(root.resolve("uploads"));
+        Path snapshot=Files.createTempFile(root.resolve("uploads"),"handbook-",".bin");
+        try {
+            Files.copy(source,snapshot,StandardCopyOption.REPLACE_EXISTING);
+            var run=new Run(owner,snapshot,filename,true,this::index);run.fromPage=fromPage;run.toPage=toPage;
+            runs.put(run.id,run);return created(run);
+        } catch(Exception e) { Files.deleteIfExists(snapshot);throw e; }
+    }
     private void ensureCapacity() { if(runs.size()>=MAX_RUNS) throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,"教学实验已满，请清理旧实验或等待过期"); }
     private Object created(Run r) throws java.io.IOException {
         String preview="二进制文档：下载原文件查看排版；解析阶段会显示文字与来源位置。";
         if(r.filename.endsWith(".md") || r.filename.endsWith(".txt")) try {
             String content=Files.readString(r.source,StandardCharsets.UTF_8);preview=content.substring(0,Math.min(content.length(),MAX_TEXT));
         } catch(java.nio.charset.CharacterCodingException ignored) { preview="文本编码将在解析阶段检查。"; }
+        if(r.fromPage>0)preview="公开手册 · 仅演示物理第 "+r.fromPage+"–"+r.toPage+" 页。完整原文件已通过正式知识库入库流程。";
         return Map.of("runId",r.id,"filename",r.filename,"bytes",Files.size(r.source),"expiresAt",r.expires.toString(),
             "sourcePreview",preview,
-            "isolated",true);
+            "isolated",true,"fromPage",r.fromPage,"toPage",r.toPage);
     }
     private Run owned(String owner,String id) {
         var r=runs.get(id);if(r==null || !r.owner.equals(owner)) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"实验不存在或不属于当前会话");
@@ -120,9 +135,13 @@ public class TutorialService {
     }
     public Stage parse(String owner,String id) { return operate(owner,id,"parse",r->{
         long start=System.nanoTime();var sections=parser.parse(r.source,r.filename);
+        if(r.fromPage>0) {
+            sections=sections.stream().filter(s->s.page()!=null && s.page()>=r.fromPage && s.page()<=r.toPage).toList();
+            require(!sections.isEmpty(),"所选页面不存在或未提取到文字，请换一个页码");
+        }
         if(sections.stream().mapToInt(s->s.text().length()).sum()>MAX_TEXT) throw new IllegalArgumentException("教学文档提取文字须少于 20000 字符");
         clearIndex(r);r.sections=sections;r.chunks=List.of();r.records=List.of();invalidate(r,"chunk","embed","retrieve","rerank","prompt","generate");
-        return result(r,"parse","LOCAL_PARSER",Map.of("filename",r.filename),Map.of("sections",sections,"sectionCount",sections.size(),"characters",sections.stream().mapToInt(s->s.text().length()).sum()),start,
+        return result(r,"parse","LOCAL_PARSER",Map.of("filename",r.filename,"fromPage",r.fromPage,"toPage",r.toPage),Map.of("sections",sections,"sectionCount",sections.size(),"characters",sections.stream().mapToInt(s->s.text().length()).sum()),start,
             "复用生产 DocumentParser；PDF 保留物理页码，Word 保留章节与表格顺序，不虚构 Word 页码。","PDF 示例为英文文本；Word 和 Markdown 示例为中文。扫描 PDF 需要 OCR，当前不支持。");
     }); }
     public Stage chunk(String owner,String id,TutorialController.ChunkRequest body) { return operate(owner,id,"chunk",r->{
@@ -192,7 +211,7 @@ public class TutorialService {
         else { require(body.query().equals(r.recalledQuery),"问题已改变，请重新召回");require(!r.recalled.isEmpty(),"先召回候选，或选择独立候选集");before=r.recalled; }
         List<SearchHit> after;String raw="";
         if(body.method().equals("bm25")) after=TutorialRanking.bm25(body.query(),before);
-        else if(body.method().equals("configured")) { require(reranker.configured(),"尚未配置专用重排服务，请选择 LLM 或离线对照");after=reranker.rerank(body.query(),before,before.size()); }
+        else if(body.method().equals("configured")) { require(reranker.configured(),"尚未配置生产重排，请选择 LLM 或离线对照");after=reranker.rerank(body.query(),before,before.size()); }
         else {
             require(models.chatConfigured(),"请配置聊天模型");
             List<Object> candidates=new ArrayList<>();for(int i=0;i<before.size();i++) candidates.add(Map.of("index",i,"text",before.get(i).text()));
@@ -204,7 +223,7 @@ public class TutorialService {
         List<Object> comparison=new ArrayList<>();for(int i=0;i<after.size();i++) {
             var hit=after.get(i);int original=-1;for(int j=0;j<before.size();j++) if(before.get(j).id().equals(hit.id())) original=j;
             Map<String,Object> row=new LinkedHashMap<>();row.put("beforeRank",original+1);row.put("afterRank",i+1);row.put("hit",hit);
-            row.put("rerankScore",body.method().equals("llm") ? null : hit.score());comparison.add(row);
+            row.put("rerankScore",body.method().equals("llm") || body.method().equals("configured") && reranker.mode().equals("llm") ? null : hit.score());comparison.add(row);
         }
         return result(r,"rerank",body.method().equals("llm") ? "LIVE_LLM_LISTWISE" : body.method().equals("bm25") ? "LOCAL_BM25_BASELINE" : "LIVE_CONFIGURED_RERANK",
             Map.of("query",body.query(),"method",body.method(),"source",body.source(),"candidates",before),Map.of("hits",after,"comparison",comparison,"modelOutput",raw),start,
@@ -228,7 +247,7 @@ public class TutorialService {
         while(matcher.find()) { try { int n=Integer.parseInt(matcher.group(1));cited.add(n);if(n<1 || n>r.evidence.size()) valid=false; } catch(NumberFormatException e) { valid=false; } }
         return result(r,"generate","LIVE_CHAT_MODEL",Map.of("model",properties.chat().model(),"evidenceCount",r.evidence.size()),
             Map.of("answer",answer,"citedNumbers",cited,"citationNumbersValid",valid && !cited.isEmpty(),"citations",r.evidence,"factsVerified",false),start,
-            "真实调用聊天 API。citationNumbersValid 只说明引用编号可对应证据，不代表所有事实都正确。","请对照原文检查上海/北京、住宿/餐饮、650/550/80 等差异。资料不足时应拒答。");
+            "真实调用聊天 API。citationNumbersValid 只说明引用编号可对应证据，不代表所有事实都正确。","请对照原文检查机构、适用人群、条件和数值。资料不足时应拒答。");
     }); }
     public Object delete(String owner,String id) {
         var r=owned(owner,id);synchronized(r) { cleanup(r);runs.remove(id,r);return Map.of("deleted",true,"runId",id); }

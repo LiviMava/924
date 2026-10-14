@@ -33,11 +33,11 @@
   const state = { index:0, run:null, results:{}, busy:false, config:null,
     settings:{size:220,overlap:40,query:'去上海出差，酒店每晚最高能报销多少钱？',topK:5,threshold:0,method:'llm',rerankSource:'retrieved',promptSource:'ranked',evidenceCount:3} };
   const node = (tag,cls,text) => { const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n; };
-  async function api(path,body,method='POST') {
+  async function api(path,body,method='POST',base='/api/v1/tutorial') {
     let token='';try { token=sessionStorage.getItem('zhixu.rag.accessToken') || ''; } catch (_) {}
     const headers=token ? {Authorization:'Bearer '+token} : {};
     if(body!==undefined && !(body instanceof FormData)) headers['Content-Type']='application/json';
-    const response=await fetch('/api/v1/tutorial'+path,{method,headers,credentials:'same-origin',body:body===undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),signal:AbortSignal.timeout(120000)});
+    const response=await fetch(base+path,{method,headers,credentials:'same-origin',body:body===undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),signal:AbortSignal.timeout(180000)});
     const data=await response.json();if(!response.ok)throw new Error(data.detail || '请求失败：HTTP '+response.status);return data;
   }
   function error(message) { $('error').textContent=message || ''; $('error').hidden=!message; }
@@ -61,7 +61,7 @@
     $('controls').replaceChildren();const c=$('controls');
     if(stage==='chunk'){c.append(field('分块长度（字符）','size','number'),field('重叠长度（字符）','overlap','number'));}
     if(stage==='retrieve'){c.append(field('问题','query'),field('Top-K','topK','number'),field('Cosine 阈值 [-1, 1]','threshold','number'));}
-    if(stage==='rerank'){c.append(field('问题','query'),field('候选来源','rerankSource','text',[['retrieved','向量召回的候选'],['fixture','独立候选集（无需入库）']]),field('重排方式','method','text',[['llm','真实 LLM 重排 · DeepSeek'],['bm25','离线 BM25 对照 · 非神经网络'],['configured','已配置的专用重排服务']]));}
+    if(stage==='rerank'){c.append(field('问题','query'),field('候选来源','rerankSource','text',[['retrieved','向量召回的候选'],['fixture','独立候选集（无需入库）']]),field('重排方式','method','text',[['llm','真实 LLM 重排 · DeepSeek'],['bm25','离线 BM25 对照 · 非神经网络'],['configured','使用生产重排配置']]));}
     if(stage==='prompt'){c.append(field('问题','query'),field('证据来源','promptSource','text',[['ranked','重排后的候选'],['retrieved','向量召回的候选'],['fixture','独立证据集（无需模型）']]),field('证据数量','evidenceCount','number'));}
     const previews={parse:state.run?.sourcePreview,chunk:state.results.parse?.output.sections.map(s=>s.text).join('\n\n'),embed:state.results.chunk?.output.chunks.map(x=>'#'+x.chunk.index+' '+x.chunk.text).join('\n\n'),retrieve:'问题向量会在点击后生成。页面会把 Qdrant 分数与本地重新计算的 Cosine 放在一起比较。',rerank:'输出会显示每个片段排序前后的名次。独立候选集可以跳过 Embedding 和向量入库。',prompt:'模型实际接收的是 messages：system 规则与 user 问题/证据分开。这里会展示完整消息内容。',generate:'使用第 06 步刚刚展示的 Prompt 调用模型，不会自动添加其他资料。'};
     $('input-preview').textContent=previews[stage] || '先准备一份示例资料，再逐步运行实验。';
@@ -94,7 +94,7 @@
       const check=data.cosineChecks[i];const card=piece('#'+(i+1)+' · '+location(hit),hit.text,'Cosine '+hit.score.toFixed(4));
       card.append(node('p','muted','本地复算 '+check.recomputedCosine.toFixed(4)));const bar=node('div','score-line'),fill=node('span');fill.style.width=Math.max(0,Math.min(100,hit.score*100))+'%';bar.append(fill);card.append(bar);out.append(card);
     });if(!data.hitCount)out.append(node('div','empty','没有达到当前阈值的候选。尝试降低阈值或换一个问题。'));}
-    if(stage==='rerank'){out.append(metricRow([['候选数量',data.hits.length],['排序方式',result.input.method==='llm'?'LLM':result.input.method==='bm25'?'BM25':'专用模型']]));data.comparison.forEach(row=>{
+    if(stage==='rerank'){out.append(metricRow([['候选数量',data.hits.length],['排序方式',result.input.method==='llm'?'LLM':result.input.method==='bm25'?'BM25':'生产配置']]));data.comparison.forEach(row=>{
       const diff=row.beforeRank-row.afterRank;out.append(piece('原第 '+row.beforeRank+' → 新第 '+row.afterRank,row.hit.text,diff>0?'↑ '+diff:diff<0?'↓ '+(-diff):'顺序不变'));
     });}
     if(stage==='prompt'){out.append(metricRow([['使用证据',data.selectedCount],['消息字符数',data.characters]]));data.messages.forEach(m=>{const card=piece(m.role.toUpperCase(),'');card.querySelector('p').className='prompt-message';card.querySelector('p').textContent=m.content;out.append(card);});}
@@ -127,8 +127,53 @@
   $('sample').onchange=()=>{$('download-sample').href='/api/v1/tutorial/samples/'+$('sample').value;};
   $('download-sample').onclick=event=>{event.preventDefault();busy(async()=>{let token='';try{token=sessionStorage.getItem('zhixu.rag.accessToken')||'';}catch(_){}const response=await fetch($('download-sample').href,{headers:token?{Authorization:'Bearer '+token}:{}});if(!response.ok)throw new Error('下载失败，请检查服务令牌');const url=URL.createObjectURL(await response.blob());const a=node('a');a.href=url;a.download='demo-handbook.'+$('sample').value;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});};
   $('clear').onclick=()=>busy(async()=>{await api('/runs/'+state.run.runId,undefined,'DELETE');state.run=null;state.results={};});
-  $('run-all').onclick=()=>busy(async()=>{await prepare($('sample').value);state.settings.rerankSource='retrieved';state.settings.promptSource='ranked';for(let i=0;i<lessons.length;i++){state.index=i;render();await execute(lessons[i][0]);render();}});
+  $('run-all').onclick=()=>busy(async()=>{if(!state.run)await prepare($('sample').value);state.settings.rerankSource='retrieved';state.settings.promptSource='ranked';for(let i=0;i<lessons.length;i++){state.index=i;render();await execute(lessons[i][0]);render();}});
   $('export-stage').onclick=()=>download(state.results[lessons[state.index][0]],'rag-'+lessons[state.index][0]+'.json');
   $('export-all').onclick=()=>download({run:state.run,stages:state.results},'rag-tutorial-'+state.run.runId+'.json');
-  render();api('/config',undefined,'GET').then(config=>{state.config=config;$('service-status').textContent='教学服务已启用 · Embedding '+(config.embeddingConfigured?config.embeddingModel+' / '+config.embeddingDimensions+' 维':'未配置')+' · 聊天 '+(config.chatConfigured?config.chatModel:'未配置')+' · 专用重排 '+(config.rerankerConfigured?'已配置':'未配置，可用真实 LLM 或离线对照');render();}).catch(e=>{$('service-status').textContent='教学接口未启用或无法访问。使用 Start-Local.ps1 启动，或设置 RAG_TUTORIAL_ENABLED=true。';error(e.message);});
+  let corpus={items:[],questions:[]};
+  function selectedDocument(){return corpus.items.find(item=>item.sha256===$('corpus-document').value);}
+  function showDocument(){
+    const item=selectedDocument();$('corpus-prepare').disabled=!item || item.status!=='READY';
+    if(!item){$('corpus-detail').textContent='运行数据集下载和导入脚本后，这里会显示实际文件。';$('corpus-source').removeAttribute('href');return;}
+    $('corpus-detail').textContent=item.pages+' 页 · '+item.status+' · '+item.chunkCount+' 个片段 · '+item.filename;
+    try{const url=new URL(item.sourceUrl);if(['https:','http:'].includes(url.protocol))$('corpus-source').href=url.href;else $('corpus-source').removeAttribute('href');}catch(_){$('corpus-source').removeAttribute('href');}
+    $('corpus-from').max=item.pages;$('corpus-to').max=item.pages;
+  }
+  function showCase(){
+    const item=corpus.questions.find(item=>item.id===$('corpus-case').value);if(!item)return;
+    $('corpus-question').value=item.query;
+    $('corpus-case-note').textContent='核对依据：'+item.publisher+(item.negative?' · 资料不足，应拒绝编造答案。':' · 物理第 '+item.sourcePages.join('、')+' 页。');
+    const doc=corpus.items.find(doc=>doc.filename===item.expected_document);
+    if(doc){$('corpus-document').value=doc.sha256;$('corpus-from').value=item.sourcePages[0]||1;$('corpus-to').value=item.sourcePages[0]||1;showDocument();}
+  }
+  async function loadCorpus(){
+    try{
+      corpus=await api('/handbooks',undefined,'GET');$('corpus-status').textContent=corpus.downloaded+' 份手册已下载 · '+corpus.ready+' 份已完成入库 · '+corpus.chunks+' 个知识片段 · '+corpus.questions.length+' 个回归问题';
+      $('corpus-document').replaceChildren();for(const item of corpus.items){const option=node('option','',item.title+' · '+item.pages+' 页 · '+item.status);option.value=item.sha256;$('corpus-document').append(option);}
+      $('corpus-case').replaceChildren();for(const item of corpus.questions){const option=node('option','',item.id+' · '+item.query);option.value=item.id;$('corpus-case').append(option);}
+      $('corpus-ask').disabled=!corpus.ready || !corpus.questions.length;showDocument();showCase();
+      const report=corpus.evaluation;$('corpus-report').replaceChildren();
+      if(report?.cases){$('corpus-report-title').textContent=(report.allPassed?'验收通过':'验收未通过')+' · 问答 '+report.passed+' / '+report.total+' · '+report.finishedAt;
+        for(const item of report.cases){const card=piece((item.passed?'通过':'未通过')+' · '+item.id,item.query+'\n'+(item.answer||item.error||''));card.append(node('p','muted','检索证据 '+(item.retrievalPassed?'✓':'✗')+' · 模型重排 '+(item.rerankPassed?'✓':'✗')+' · 答案事实 '+(item.answerPassed?'✓':'✗')+' · 引用证据 '+(item.citationPassed?'✓':'✗')));$('corpus-report').append(card);}
+      }else{$('corpus-report-title').textContent='尚未生成自动回归报告';}
+    }catch(e){$('corpus-status').textContent='数据集目录暂不可用：'+e.message;}
+  }
+  $('corpus-refresh').onclick=loadCorpus;$('corpus-document').onchange=showDocument;$('corpus-case').onchange=showCase;
+  $('corpus-prepare').onclick=()=>busy(async()=>{
+    const item=selectedDocument();if(!item)throw new Error('请先选择已入库的手册');
+    if(state.run)await api('/runs/'+state.run.runId,undefined,'DELETE');state.run=null;state.results={};
+    state.run=await api('/runs/from-document',{documentId:item.documentId,fromPage:Number($('corpus-from').value),toPage:Number($('corpus-to').value)});
+    state.settings.size=800;state.settings.overlap=120;state.settings.query=$('corpus-question').value.trim()||'请总结本页主要的员工政策。';state.index=0;
+    $('lesson-title').scrollIntoView({behavior:'smooth',block:'start'});
+  });
+  $('corpus-ask').onclick=async()=>{
+    if($('corpus-ask').disabled)return;const question=$('corpus-question').value.trim();if(!question)return;
+    $('corpus-ask').disabled=true;$('corpus-answer').textContent='正在从完整知识库检索并生成答案…';
+    try{const body={question,history:[]};if($('corpus-scope').value==='selected'){const doc=selectedDocument();if(!doc || doc.status!=='READY')throw new Error('所选手册尚未完成入库');body.documentId=doc.documentId;}
+      const result=await api('/chat',body,'POST','/api/v1');$('corpus-answer').replaceChildren(node('p','',result.answer));
+      result.citations.forEach((hit,i)=>$('corpus-answer').append(piece('['+(i+1)+'] '+hit.filename+' · '+location(hit),hit.text)));
+    }catch(e){$('corpus-answer').textContent='请求失败：'+e.message;}finally{$('corpus-ask').disabled=false;}
+  };
+  loadCorpus();
+  render();api('/config',undefined,'GET').then(config=>{state.config=config;$('service-status').textContent='教学服务已启用 · Embedding '+(config.embeddingConfigured?config.embeddingModel+' / '+config.embeddingDimensions+' 维':'未配置')+' · 聊天 '+(config.chatConfigured?config.chatModel:'未配置')+' · 生产重排 '+(config.rerankerConfigured?config.productionRerankMode:'未配置，可用真实 LLM 或离线对照');render();}).catch(e=>{$('service-status').textContent='教学接口未启用或无法访问。使用 Start-Local.ps1 启动，或设置 RAG_TUTORIAL_ENABLED=true。';error(e.message);});
 })();

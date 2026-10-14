@@ -1,0 +1,2 @@
+# Source PDF validation/extraction; ingestion itself uses the application's PDFBox parser.
+pypdf==6.10.0

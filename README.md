@@ -32,7 +32,7 @@ Copy-Item .env.example .local.env
 | 不配置任何模型 | 上传、解析、分块、文档管理、中文关键词检索；不会伪造模型答案 |
 | 配置聊天模型 | 基于检索片段进行问答，并返回引用 |
 | 再配置 Embedding | Qdrant 向量检索＋Lucene BM25，通过 RRF 融合 |
-| 再配置重排服务 | 使用兼容 rerank 接口的模型对候选排序 |
+| 再启用模型重排 | 配置 rerank HTTP 服务，或设置 `RAG_RERANK_MODE=llm` 使用聊天模型选择 Top-K 候选 |
 
 聊天、Embedding、重排可以来自不同供应商。DeepSeek 等聊天端点不能自动当成 Embedding 端点。Embedding 的 URL、模型名、密钥、实际输出维度均需正确配置，具体变量见 [.env.example](.env.example)。
 
@@ -55,6 +55,8 @@ Copy-Item .env.example .local.env
 打开 [RAG 教学实验室](http://127.0.0.1:8090/tutorial.html)，观察解析、分块、真实 Embedding 入库、向量召回、重排、Prompt 和生成的实际输入输出。Start-Local 自动启用本地教学接口，其他启动方式默认关闭；教学索引与公司知识库隔离。
 
 [完整讲义、七个独立 demo 和讲师安排](tutorial/README.md)。命令行完整流程：`./scripts/Invoke-RagTutorial.ps1 -Stage all`。独立重排默认实际调用聊天模型，另有明确标注的离线 BM25 对照；当前没有专用 Cross-Encoder 服务。
+
+[百份公开手册实验](evals/handbooks/README.md)提供 100 个固定版本的 PDF 来源、断点下载/入库脚本，以及 9 道检查事实和引用页码的真实问答回归。教学页可以从任意已入库手册选择 1–3 页运行七步，也可以对完整手册提问。原始第三方 PDF 保留在本地，仓库保存来源和校验值。
 
 ## 技术选择
 

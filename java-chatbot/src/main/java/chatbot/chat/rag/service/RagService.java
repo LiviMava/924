@@ -41,7 +41,7 @@ public class RagService {
                 query=previous.substring(0,Math.min(1000,previous.length()))+"\n"+query; break;
             }
         }
-        var result=retriever.search(query,properties.retrieval().topK());
+        var result=retriever.search(query,properties.retrieval().topK(),request.documentId());
         if (result.hits().isEmpty()) return new Prepared(result,null);
         if (!model.chatConfigured()) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
             "聊天模型尚未配置。请在 .local.env 设置 RAG_CHAT_BASE_URL、RAG_CHAT_MODEL、RAG_CHAT_API_KEY；当前可使用检索功能。");

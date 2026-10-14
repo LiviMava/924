@@ -1,0 +1,60 @@
+{
+  "recordedAt": "2026-10-14T10:47:40.0334900Z",
+  "filename": "cmu-edu-b802e0ea27.pdf",
+  "physicalPages": [
+    12
+  ],
+  "question": "According to Carnegie Mellon's staff handbook, how long are unpaid meal periods and how much paid break time may be scheduled per day?",
+  "stages": [
+    {
+      "stage": "parse",
+      "mode": "LOCAL_PARSER",
+      "elapsedMs": 993
+    },
+    {
+      "stage": "chunk",
+      "mode": "LOCAL_CHUNKER",
+      "elapsedMs": 4
+    },
+    {
+      "stage": "embed",
+      "mode": "LIVE_EMBEDDING_QDRANT",
+      "elapsedMs": 730
+    },
+    {
+      "stage": "retrieve",
+      "mode": "LIVE_VECTOR_RECALL",
+      "elapsedMs": 349
+    },
+    {
+      "stage": "rerank",
+      "mode": "LIVE_CONFIGURED_RERANK",
+      "elapsedMs": 863
+    },
+    {
+      "stage": "prompt",
+      "mode": "SHARED_PRODUCTION_PROMPT",
+      "elapsedMs": 0
+    },
+    {
+      "stage": "generate",
+      "mode": "LIVE_CHAT_MODEL",
+      "elapsedMs": 1284
+    }
+  ],
+  "database": {
+    "distance": "Cosine",
+    "collection": "rag_tutorial_a10439f3639d4a22b5f2d8d419da8121_f5ce7f0ec932",
+    "dimensions": 2048,
+    "pointsCount": 5
+  },
+  "answer": "According to the Carnegie Mellon staff handbook:\n\n- **Unpaid meal periods**: They last **at least one half-hour (30 minutes), but not more than one hour** [1][2].\n- **Paid break time**: Scheduled breaks are optional and department-determined; if scheduled, they are **limited to 15 minutes per day and are paid** [2].",
+  "checks": {
+    "allSevenStages": true,
+    "physicalPagesPreserved": true,
+    "answerFacts": true,
+    "citedEvidenceFacts": true,
+    "cleanupConfirmedByApi": true,
+    "collectionAbsentInQdrant": true
+  }
+}

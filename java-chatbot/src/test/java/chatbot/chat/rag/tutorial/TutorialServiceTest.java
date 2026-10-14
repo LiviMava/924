@@ -67,6 +67,19 @@ class TutorialServiceTest {
         service.parse("owner",id);assertThrows(IllegalArgumentException.class,()->service.chunk("owner",id,new TutorialController.ChunkRequest(220,220)));
         assertTrue(json.valueToTree(service.state("owner",id)).path("stages").has("parse"));
     }
+    @Test void handbookPageExperimentPreservesPhysicalPagesAndSnapshotsSource() throws Exception {
+        Path original=service.sample("pdf");
+        var created=json.valueToTree(service.fromDocument("owner",original,"handbook.pdf",2,2));
+        String id=created.path("runId").asText();
+        assertEquals(2,created.path("fromPage").asInt());
+        java.nio.file.Files.delete(original);
+        var parsed=json.valueToTree(service.parse("owner",id)).path("output");
+        assertEquals(1,parsed.path("sectionCount").asInt());
+        assertEquals(2,parsed.path("sections").get(0).path("page").asInt());
+        assertEquals(404,assertThrows(ResponseStatusException.class,()->service.parse("other",id)).getStatusCode().value());
+        service.delete("owner",id);
+        assertThrows(IllegalArgumentException.class,()->service.fromDocument("owner",original,"handbook.pdf",1,4));
+    }
     @Test void completePipelineStoresRealHttpPayloadAndInvalidatesDependentResults() throws Exception {
         String id=run();service.parse("owner",id);service.chunk("owner",id,new TutorialController.ChunkRequest(220,40));
         var embedded=json.valueToTree(service.embed("owner",id));String collection=embedded.path("output").path("database").path("collection").asText();

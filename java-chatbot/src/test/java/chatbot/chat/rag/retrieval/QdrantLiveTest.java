@@ -36,6 +36,8 @@ class QdrantLiveTest {
             index.add(List.of(new ChunkRecord(chunk,doc,0,"仅用于数据库集成测试的虚构制度",1,"test")));
             var found=index.search("制度",5);
             assertEquals(1,found.size());assertEquals(chunk,found.get(0).id());
+            assertEquals(1,index.search("制度",5,doc).size());
+            assertTrue(index.search("制度",5,UUID.randomUUID().toString()).isEmpty(),"Document filter must run before Top-K");
             index.deleteDocument(index.collection(),doc);
             assertTrue(index.search("制度",5).isEmpty());
         } finally {

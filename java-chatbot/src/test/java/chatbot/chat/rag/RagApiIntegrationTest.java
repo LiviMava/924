@@ -118,6 +118,23 @@ class RagApiIntegrationTest {
         verify(models,never()).answer(any());
         assertEquals(404,call("GET","/api/chat/stream",null,true).statusCode(),"旧的不受限聊天端点默认关闭");
     }
+    @Test void scopedSearchAndAnswerDoNotMixConflictingCompanyPolicies() throws Exception {
+        String first=json.readTree(upload("meridian.txt","Meridian employee handbook: annual leave allowance is 12 days.").body()).path("id").asText();
+        worker.tick();
+        String second=json.readTree(upload("umbra.txt","Umbra employee handbook: annual leave allowance is 99 days.").body()).path("id").asText();
+        worker.tick();
+        try {
+            String body=json.writeValueAsString(java.util.Map.of("query","annual leave allowance","topK",6,"documentId",first));
+            var response=call("POST","/api/v1/search",body,true);assertEquals(200,response.statusCode());
+            var hits=json.readTree(response.body()).path("hits");assertFalse(hits.isEmpty());
+            hits.forEach(hit->assertEquals(first,hit.path("documentId").asText()));
+            when(models.answer(any())).thenReturn("12 days.[1]");
+            var answer=call("POST","/api/v1/chat",json.writeValueAsString(java.util.Map.of("question","annual leave allowance","documentId",first)),true);
+            assertEquals(200,answer.statusCode());assertTrue(json.readTree(answer.body()).path("grounded").asBoolean());
+            verify(models).answer(argThat(prompt->prompt.toString().contains("12 days") && !prompt.toString().contains("99 days")));
+            assertEquals(400,call("POST","/api/v1/search","{\"query\":\"leave\",\"documentId\":\"../secret\"}",true).statusCode());
+        } finally {call("DELETE","/api/v1/documents/"+first,null,true);worker.tick();call("DELETE","/api/v1/documents/"+second,null,true);worker.tick();}
+    }
     private HttpResponse<String> upload(String name,String text) throws Exception {
         String boundary="test-boundary";
         String body="--"+boundary+"\r\nContent-Disposition: form-data; name=\"file\"; filename=\""+name+

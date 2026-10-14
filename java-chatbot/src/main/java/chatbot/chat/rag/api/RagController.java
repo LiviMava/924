@@ -69,7 +69,7 @@ public class RagController {
             .body(new FileSystemResource(documents.content(id)));
     }
     @PostMapping("/search") public HybridRetriever.Result search(@Valid @RequestBody SearchRequest request) {
-        return retriever.search(request.query(),request.topK()==null ? properties.retrieval().topK() : request.topK());
+        return retriever.search(request.query(),request.topK()==null ? properties.retrieval().topK() : request.topK(),request.documentId());
     }
     @PostMapping("/chat") public ChatResponse chat(@Valid @RequestBody ChatRequest request) {
         acquire();

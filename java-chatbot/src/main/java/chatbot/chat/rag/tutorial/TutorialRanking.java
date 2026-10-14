@@ -42,16 +42,6 @@ public final class TutorialRanking {
     }
     /** Require an exact permutation, so malformed LLM output cannot silently drop/duplicate evidence. */
     public static List<SearchHit> parseOrder(String answer,List<SearchHit> hits,ObjectMapper json) {
-        if(answer==null || answer.length()>4000) throw new IllegalStateException("重排模型输出无效");
-        String text=answer.strip();
-        if(text.startsWith("```")) text=text.replaceFirst("^```(?:json)?\\s*","").replaceFirst("\\s*```$","");
-        var order=json.readTree(text).path("order");Set<Integer> seen=new HashSet<>();List<SearchHit> result=new ArrayList<>();
-        if(!order.isArray() || order.size()!=hits.size()) throw new IllegalStateException("重排模型必须返回完整的候选排列");
-        for(var item:order) {
-            int index=item.isIntegralNumber() ? item.asInt(-1) : -1;
-            if(index<0 || index>=hits.size() || !seen.add(index)) throw new IllegalStateException("重排模型返回重复或越界序号");
-            result.add(hits.get(index));
-        }
-        return List.copyOf(result);
+        return chatbot.chat.rag.retrieval.ListwiseRanking.parseOrder(answer,hits,json);
     }
 }

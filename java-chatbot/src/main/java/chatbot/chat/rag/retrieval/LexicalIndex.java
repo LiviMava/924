@@ -46,6 +46,9 @@ public class LexicalIndex {
     }
     public void delete(String documentId) { replace(documentId, List.of()); }
     public List<VectorIndex.Match> search(String text, int limit) {
+        return search(text,limit,null);
+    }
+    public List<VectorIndex.Match> search(String text,int limit,String documentId) {
         IndexSearcher searcher = null;
         try {
             Set<String> terms = new LinkedHashSet<>();
@@ -60,7 +63,10 @@ public class LexicalIndex {
             terms.forEach(term -> query.add(new TermQuery(new Term("text", term)), BooleanClause.Occur.SHOULD));
             query.setMinimumNumberShouldMatch(1);
             searcher = manager.acquire();
-            var hits = searcher.search(query.build(), limit);
+            Query scoped=query.build();
+            if(documentId!=null)scoped=new BooleanQuery.Builder().add(scoped,BooleanClause.Occur.MUST)
+                .add(new TermQuery(new Term("documentId",documentId)),BooleanClause.Occur.FILTER).build();
+            var hits = searcher.search(scoped, limit);
             var stored = searcher.storedFields();
             List<VectorIndex.Match> result = new ArrayList<>();
             for (var hit : hits.scoreDocs) result.add(new VectorIndex.Match(stored.document(hit.doc).get("id"), hit.score));

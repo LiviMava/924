@@ -11,7 +11,26 @@
 <body>
 <header class="topbar"><a class="brand" href="/">知序 <span>RAG LAB</span></a><span class="top-note">原理 × 实际输入 × 实际输出</span><div class="top-actions"><button id="theme-toggle" type="button" class="theme-toggle" aria-label="切换明暗主题" aria-pressed="false"><svg id="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4 14.1A8.6 8.6 0 0 1 9.9 3.6 8.7 8.7 0 1 0 20.4 14.1Z"/></svg><svg id="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg><span id="theme-label">暗色主题</span></button><a href="/">返回知识库 ↗</a></div></header>
 <main>
-  <section class="hero"><div><span class="eyebrow">从文档到答案 · 七个可运行实验</span><h1>看见一个答案<br>是怎样诞生的。</h1><p>拆开 RAG 的每一步。改变参数，观察结果，再把它们连接起来。</p></div><div class="hero-note"><span class="live-dot"></span>真实模型 · 真实向量库<p>解析和分块在本地运行。Embedding、LLM 重排和回答会调用已配置的云端 API。</p><small>所有内置资料都是虚构教学数据。</small></div></section>
+  <section class="hero"><div><span class="eyebrow">从文档到答案 · 七个可运行实验</span><h1>看见一个答案<br>是怎样诞生的。</h1><p>拆开 RAG 的每一步。改变参数，观察结果，再把它们连接起来。</p></div><div class="hero-note"><span class="live-dot"></span>真实模型 · 真实向量库<p>解析和分块在本地运行。Embedding、LLM 重排和回答会调用已配置的云端 API。</p><small>三个小样例为虚构数据；下方公开手册保留真实来源和页码。</small></div></section>
+  <section class="corpus panel" aria-label="公开员工手册数据集">
+    <div class="panel-heading"><span>PUBLIC HANDBOOKS</span><h2>百份手册，实际问答</h2><button id="corpus-refresh" class="quiet">刷新数据集</button></div>
+    <p id="corpus-status" class="muted" role="status">正在读取公开手册目录…</p>
+    <p class="muted">各机构的公开手册用于检索实验，版本以下载快照为准。提问时请注明机构；回答不代表本公司的制度。</p>
+    <div class="corpus-grid"><div>
+      <label class="field" for="corpus-document"><span>已下载的公开手册</span><select id="corpus-document"></select></label>
+      <p id="corpus-detail" class="muted"></p><a id="corpus-source" target="_blank" rel="noopener noreferrer">查看原始来源 ↗</a>
+      <div class="corpus-pages"><label class="field" for="corpus-from"><span>物理起始页</span><input id="corpus-from" type="number" min="1" max="500" value="1"></label><label class="field" for="corpus-to"><span>物理结束页（最多 3 页）</span><input id="corpus-to" type="number" min="1" max="500" value="1"></label></div>
+      <button id="corpus-prepare" class="quiet" disabled>把所选页放入七步实验 →</button>
+      <p class="muted">完整文件通过正式入库流程建立索引；页面选取仅缩小七步实验的展示范围。</p>
+    </div><div>
+      <label class="field" for="corpus-case"><span>有原文依据的测试问题</span><select id="corpus-case"></select></label>
+      <label class="field" for="corpus-question"><span>提问（可修改）</span><textarea id="corpus-question" rows="3"></textarea></label>
+      <label class="field" for="corpus-scope"><span>检索范围</span><select id="corpus-scope"><option value="selected">所选机构的完整手册</option><option value="all">整个知识库（比较机构时使用）</option></select></label>
+      <button id="corpus-ask" class="primary" disabled>检索并回答 →</button>
+      <p id="corpus-case-note" class="muted"></p><div id="corpus-answer" class="preview" aria-live="polite">选择一个问题，查看实际答案与引用。</div>
+    </div></div>
+    <details><summary id="corpus-report-title">最近一次自动回归测试</summary><div id="corpus-report"></div></details>
+  </section>
   <section class="setup" aria-label="实验资料"><div><label for="sample">实验资料</label><select id="sample"><option value="md">员工手册 · Markdown（中文）</option><option value="docx">员工手册 · Word（中文＋表格）</option><option value="pdf">员工手册 · PDF（英文，两页）</option></select></div><button id="prepare" class="primary">准备示例</button><label class="upload">或上传文档<input id="upload" type="file" accept=".pdf,.docx,.doc,.txt,.md"></label><a id="download-sample" href="/api/v1/tutorial/samples/md">下载原文件 ↗</a><button id="clear" class="quiet" disabled>清理实验</button><span id="run-status">尚未创建实验</span></section>
   <div id="service-status" class="service-status" role="status">正在检查教学服务…</div>
   <div class="lab-layout"><aside><nav id="steps" aria-label="RAG 链路"></nav><div class="aside-note"><strong>先离线，再连模型</strong><p>01、02、06 可在本地演示。05 可选择关键词对照。03、04、07 需要配置真实模型。</p><button id="run-all" class="primary">运行整条链路 ↗</button><p>完整流程默认使用 LLM 重排，约需几十秒；会产生模型调用费用。</p></div></aside>

@@ -19,6 +19,8 @@ public class Reranker {
     private final ModelGateway models;
     @org.springframework.beans.factory.annotation.Value("${rag.retrieval.rerank-mode:http}")
     private String mode="http";
+    @org.springframework.beans.factory.annotation.Value("${rag.retrieval.rerank-raw-scores:false}")
+    private boolean rawScores;
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
     public Reranker(RagProperties properties,ObjectMapper json) { this(properties,json,null); }
     @org.springframework.beans.factory.annotation.Autowired
@@ -33,8 +35,9 @@ public class Reranker {
         if(hits.isEmpty())return List.of();
         if(mode.equals("llm"))return llm(query,hits,topK);
         try {
-            var body = Map.of("model", config.rerankModel(), "query", query,
-                "documents", hits.stream().map(SearchHit::text).toList(), "top_n", Math.min(topK,hits.size()));
+            Map<String,Object> body = new LinkedHashMap<>(Map.of("model", config.rerankModel(), "query", query,
+                "documents", hits.stream().map(SearchHit::text).toList(), "top_n", Math.min(topK,hits.size())));
+            if(rawScores)body.put("return_raw_scores",true);
             var request = HttpRequest.newBuilder(URI.create(config.rerankUrl())).timeout(Duration.ofSeconds(15))
                 .header("Content-Type","application/json");
             if (!config.rerankApiKey().isBlank()) request.header("Authorization","Bearer "+config.rerankApiKey());
@@ -42,10 +45,13 @@ public class Reranker {
                 HttpResponse.BodyHandlers.ofString());
             if (response.statusCode()/100 != 2) throw new IllegalStateException("重排服务暂时不可用");
             var items = json.readTree(response.body()).path("results");
+            if(!items.isArray() || items.isEmpty() || items.size()>Math.min(topK,hits.size()))
+                throw new IllegalStateException("重排响应数量不正确");
             List<SearchHit> result = new ArrayList<>(); Set<Integer> seen = new HashSet<>();
             for (var item : items) {
-                int index = item.path("index").asInt(-1);
-                double score = item.path("relevance_score").asDouble(Double.NaN);
+                var value=item.path("index");
+                int index = value.isIntegralNumber() && value.canConvertToInt()?value.asInt():-1;
+                double score = item.path("relevance_score").isNumber()?item.path("relevance_score").asDouble():Double.NaN;
                 if (index < 0 || index >= hits.size() || !Double.isFinite(score) || !seen.add(index))
                     throw new IllegalStateException("重排响应格式不正确");
                 result.add(hits.get(index).withScore(score));

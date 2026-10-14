@@ -40,11 +40,15 @@ $handbookPython = Join-Path $PWD '.runtime/handbook-venv/Scripts/python.exe'
 在本地 `.local.env` 填写自己的聊天和 Embedding 凭据。沿用智谱 `embedding-3`、2048 维与 DeepSeek 聊天配置；再设置：
 
 ```dotenv
-RAG_RERANK_MODE=llm
+RAG_RERANK_MODE=http
+RAG_RERANK_URL=https://open.bigmodel.cn/api/paas/v4/rerank
+RAG_RERANK_MODEL=rerank
+RAG_RERANK_RAW_SCORES=true
+RAG_RERANK_API_KEY=自己的智谱密钥
 RAG_EMBEDDING_BATCH_SIZE=64
 ```
 
-批大小 64 已在本次供应商调用中验证；其他供应商使用自己的限制，默认值仍为 16。LLM 重排会增加调用次数、延迟与费用；HTTP 专用重排仍可通过 `RAG_RERANK_MODE=http` 使用。本次没有把 LLM 重排称为 Cross-Encoder。
+批大小 64 已在本次供应商调用中验证；其他供应商使用自己的限制，默认值仍为 16。LLM 重排会增加调用次数、延迟与费用；HTTP 专用重排仍可通过 `RAG_RERANK_MODE=http` 使用。当前默认验收使用智谱专用 `rerank`；旧 LLM 模式需显式使用 `--rerank-mode llm`。
 
 ```powershell
 # 新环境先按项目 README 配置 .local.env；已有服务修改配置后需要重启应用。
@@ -85,7 +89,7 @@ if ($LASTEXITCODE) { throw '问答验收未通过，请检查 evaluation-latest.
 
 每题分别调用真实 `/search` 和 `/chat`。正例要求正确文件及页码的召回片段包含事实，回答包含对应事实，**回答实际使用的引用编号**指向支持事实的原文。不能仅因 citations 数组里存在一条正确证据而算通过。负例检查拒答及禁止编造的模式，同时检查来源没有跨机构。
 
-全部问题限定所选文档，过滤在 BM25 / 向量各自 Top-K 之前执行。源文件 SHA、正文去重、100 份 READY/HYBRID、Qdrant 按这 100 个 documentId 精确计数均是通过条件。检索与问答必须实际完成 LLM 重排，发生 RRF 降级不能通过该验收。
+全部问题限定所选文档，过滤在 BM25 / 向量各自 Top-K 之前执行。源文件 SHA、正文去重、100 份 READY/HYBRID、Qdrant 按这 100 个 documentId 精确计数均是通过条件。检索与问答必须实际完成所选模型重排，发生 RRF 降级不能通过该验收。
 
 ## 七步真实手册 CLI
 

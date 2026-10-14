@@ -82,7 +82,7 @@ flowchart LR
 
 - `llm`：实际调用配置的聊天模型，将完整候选排列输出为 JSON，校验序号完整、不重复、不越界。属于 LLM listwise 重排，不是 Cross-Encoder；没有相关性概率分数。
 - `bm25`：本地 Lucene 中文 BM25，仅对候选重新计算关键词分数，用于离线对照。
-- `configured`：调用生产代码 `Reranker`。`RAG_RERANK_MODE=http` 使用 Cohere 兼容 HTTP 合同，需配置 `RAG_RERANK_URL/API_KEY/MODEL`；`llm` 使用现有聊天模型选择 Top-K 候选。本机百份手册验收使用后者，没有专用 Cross-Encoder 服务。
+- `configured`：调用生产代码 `Reranker`。`RAG_RERANK_MODE=http` 使用 Cohere 兼容 HTTP 合同，需配置 `RAG_RERANK_URL/API_KEY/MODEL`；`llm` 使用现有聊天模型选择 Top-K 候选。本机现已配置智谱 `rerank` HTTP 服务；此前 LLM 验收记录保留为历史快照。配置见 [智谱重排](../docs/GLM_RERANK.md)。
 
 ## 授课实验与观察问题
 

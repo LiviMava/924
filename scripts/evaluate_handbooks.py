@@ -56,7 +56,7 @@ def corpus_check(directory, api, minimum, qdrant_url):
             "checksumsValid": checksums_valid, "uniqueFilesAndTexts": independent, "vectors": vector_checks}, docs
 
 
-def evaluate_case(case, api, by_name):
+def evaluate_case(case, api, by_name, rerank_mode="http"):
     started = time.monotonic()
     result = {"id": case["id"], "query": case["query"], "scope": case["scope"], "negative": case.get("negative", False),
               "expectedDocument": case["expected_document"], "expectedPages": case["sourcePages"],
@@ -92,7 +92,8 @@ def evaluate_case(case, api, by_name):
         result["citedSources"] = [{"filename": h["filename"], "page": h["page"]} for h in referenced]
         result["retrievalMode"] = retrieved["retrievalMode"]
         result["chatRetrievalMode"] = answer["retrievalMode"]
-        result["rerankPassed"] = (not hits or retrieved["retrievalMode"] == "HYBRID_LLM_RERANKED") and (not citations or answer["retrievalMode"] == "HYBRID_LLM_RERANKED")
+        expected_mode = "HYBRID_LLM_RERANKED" if rerank_mode == "llm" else "HYBRID_RERANKED"
+        result["rerankPassed"] = (not hits or retrieved["retrievalMode"] == expected_mode) and (not citations or answer["retrievalMode"] == expected_mode)
         result["passed"] = all(result.get(key, False) for key in ("retrievalPassed", "answerPassed", "citationPassed", "rerankPassed")) and answer["retrievalMode"].startswith("HYBRID")
     except Exception as error:
         result["error"] = type(error).__name__ + ": " + str(error)[:300]
@@ -107,6 +108,7 @@ def main():
     parser.add_argument("--url", default="http://127.0.0.1:8090")
     parser.add_argument("--qdrant-url", default="http://127.0.0.1:6333")
     parser.add_argument("--minimum", type=int, default=100)
+    parser.add_argument("--rerank-mode", choices=["http", "llm"], default="http")
     parser.add_argument("--publish", action="store_true", help="Publish compact results only when every check passes with >=100 files")
     args = parser.parse_args()
     api = Api(args.url)
@@ -117,13 +119,13 @@ def main():
     print(json.dumps({"corpus": corpus}), flush=True)
     results, full = [], []
     for case in cases:
-        result, raw = evaluate_case(case, api, {doc["filename"]: doc for doc in docs})
+        result, raw = evaluate_case(case, api, {doc["filename"]: doc for doc in docs}, args.rerank_mode)
         results.append(result)
         full.append({"result": result, "responses": raw})
         print(json.dumps(result, ensure_ascii=False), flush=True)
     stamp = datetime.now(timezone.utc)
     passed = sum(case["passed"] for case in results)
-    report = {"finishedAt": stamp.isoformat(), "corpus": corpus, "passed": passed, "total": len(results),
+    report = {"finishedAt": stamp.isoformat(), "corpus": corpus, "rerankMode": args.rerank_mode, "passed": passed, "total": len(results),
               "allPassed": corpus["passed"] and passed == len(results), "cases": results,
               "limitations": "Snapshot-specific regression with deterministic fact assertions; not a general factuality guarantee. Source scoping is not an authorization boundary."}
     name = stamp.strftime("%Y%m%dT%H%M%S%fZ")

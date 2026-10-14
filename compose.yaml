@@ -51,7 +51,7 @@ services:
       qdrant:
         condition: service_started
     ports:
-      - "127.0.0.1:8090:8090"
+      - "8090:8090"
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SERVER_ADDRESS: 0.0.0.0

@@ -141,11 +141,14 @@ GET /actuator/health用于应用/数据库健康检查；GET /api/v1/system额�
 | POST /runs/{id}/chunk | `{size:220,overlap:40}` |
 | POST /runs/{id}/embed | 真实 Embedding + 独立 Qdrant 入库 |
 | POST /runs/{id}/retrieve | `{query:"…",topK:5,threshold:0,mode:"hybrid|keyword|vector"}` |
-| POST /runs/{id}/rerank | `{query:"…",method:"llm\|bm25\|configured",source:"retrieved\|fixture"}` |
-| POST /runs/{id}/prompt | `{question:"…",topK:3,source:"ranked\|retrieved\|fixture"}` |
+| POST /runs/{id}/fusion | `{query:"…",topK:10}`，复用生产 RRF，对两路片段 ID 去重，输出名次、贡献和总分 |
+| POST /runs/{id}/rerank | `{query:"…",method:"llm\|bm25\|configured",source:"fused\|retrieved\|fixture"}` |
+| POST /runs/{id}/prompt | `{question:"…",topK:3,source:"ranked\|fused\|retrieved\|fixture"}` |
 | POST /runs/{id}/generate | 使用刚组装的 Prompt 调用真实聊天模型 |
 | DELETE /runs/{id} | 清理本实验向量、上传的临时文件和状态 |
 
 每步统一返回 `runId/stage/mode/input/output/notes/elapsedMs`。无前置数据或问题已变化返回 409；参数无效返回 400；其他会话返回 404；已过期返回 410。LLM 重排输出完整候选排列，不输出伪造分数；BM25 模式明确标为关键词基线。详细说明见 [教程](../tutorial/README.md)。
 
 `from-document` 只从文档服务取得已经校验过的本地文件，客户端不能指定服务器路径。它保留原始物理页码，使用独立实验 collection；不重新上传整份手册，也不改变正式索引。来源清单默认读取 `.runtime/handbooks`，可通过 `RAG_HANDBOOK_DIR` 配置。
+
+八步完整链路默认以 `fused` 作为重排输入。融合的 Top-K 范围为 1–24；改变召回或分块会使旧融合与后续结果失效，改变问题必须重新召回和融合。重排输出 `inputScoreType`、`scoreType`、`model`，每条 `comparison` 包含 `beforeRank/afterRank/beforeScore/rerankScore/hit`。智谱原始分数为 `RAW_RELEVANCE`；LLM 仅排列为 `ORDER_ONLY`，数值分数为空。

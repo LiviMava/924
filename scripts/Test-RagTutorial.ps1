@@ -21,16 +21,20 @@ Assert-Demo ((Read-Demo $prompt 'prompt').output.messages[0].role -eq 'system') 
 Assert-Demo ((Read-Demo $rank 'rerank').mode -eq 'LOCAL_BM25_BASELINE') 'Offline reranker was mislabeled'
 if (-not $Offline) {
     $full = & $runner -Stage all
-    Assert-Demo ($full.Completed.Count -eq 7 -and $full.Cleaned) 'End-to-end pipeline or cleanup incomplete'
+    Assert-Demo ($full.Completed.Count -eq 8 -and $full.Cleaned) 'End-to-end pipeline or cleanup incomplete'
     $embedded = Read-Demo $full 'embed'
     $recalled = Read-Demo $full 'retrieve'
+    $fused = Read-Demo $full 'fusion'
+    Assert-Demo ($fused.mode -eq 'LOCAL_RRF' -and $fused.output.selectedCount -gt 0) 'RRF stage missing'
+    foreach ($row in $fused.output.contributions) { Assert-Demo ([math]::Abs($row.fusedScore - $row.keywordContribution - $row.vectorContribution) -lt 1e-10) 'RRF contribution mismatch' }
     $reranked = Read-Demo $full 'rerank'
+    Assert-Demo (@($reranked.output.comparison | Where-Object { $null -eq $_.rerankScore }).Count -eq 0) 'Configured reranker did not provide scores'
     $generated = Read-Demo $full 'generate'
     Assert-Demo ($embedded.output.database.dimensions -gt 0 -and $embedded.output.database.pointsCount -eq (Read-Demo $full 'chunk').output.chunkCount) 'Real Qdrant point count or dimensions are inconsistent'
     foreach ($check in $recalled.output.cosineChecks) { Assert-Demo ([math]::Abs($check.qdrantScore - $check.recomputedCosine) -lt 0.00001) 'Qdrant score differs from recomputed Cosine' }
-    Assert-Demo ($reranked.mode -eq 'LIVE_LLM_LISTWISE') 'The full demo must use real LLM reranking'
+    Assert-Demo ($reranked.mode -eq 'LIVE_CONFIGURED_RERANK') 'The full demo must use configured model reranking'
     Assert-Demo ($generated.output.citationNumbersValid -and $generated.output.answer -match '650') 'Factual/citation smoke check failed; inspect the model output'
-    $strict = & $runner -Stage retrieve -Threshold 0.99
+    $strict = & $runner -Stage retrieve -RecallMode vector -Threshold 0.99
     Assert-Demo ((Read-Demo $strict 'retrieve').output.hitCount -eq 0 -and $strict.Cleaned) 'High-threshold negative case failed'
 }
 Write-Host 'RAG tutorial smoke checks passed. Model quality checks cover fictional fixtures only.'

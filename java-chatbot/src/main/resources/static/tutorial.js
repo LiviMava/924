@@ -26,12 +26,13 @@
     ['chunk','分块','把长文档切成可检索、可引用的片段。','片段太长会混入无关信息，太短可能丢失上下文。重叠保留边界信息，段落和章节决定怎样切得更自然。','把 220/40 改成 800/120，比较片段数量。高亮标记表示与上一片段相同的前缀。'],
     ['embed','Embedding 入库','文字 → 数值向量 → 数据库中的点。','Embedding 模型将文本编码成高维向量。Qdrant 保存完整向量与 payload；维度必须一致，片段 ID 用于关联原文。','观察实际 2048 维向量的前 8 维与范数。单个维度没有可直接解释的“城市”含义。'],
     ['retrieve','双路召回','关键词与语义分别寻找证据。','BM25 根据词频、逆文档频率与长度匹配原词；向量召回根据语义方向的相似度寻找改写表达。两路互补，分数不能直接相加。','切换关键词、向量或双路；提高向量阈值，观察关键词候选仍可保留。'],
+    ['fusion','融合 RRF','合并两路候选，保留每一路的贡献。','BM25 与 Cosine 量纲不同。RRF 只用名次计算 1/(60+rank)，再按片段 ID 合并贡献。缺席某一路时贡献为零。','观察双路同时命中的片段是否上升；查看每一路的名次、贡献与最终 RRF 分数。'],
     ['rerank','重排','让候选进一步围绕当前问题排序。','召回追求找到候选，重排进一步判断候选能否回答问题。专用 Cross-Encoder 和 LLM 都可用于重排，但成本与输出合同不同。','选择独立候选集，对比上海办公室餐饮、北京住宿、上海住宿。LLM 是真实调用；BM25 是离线关键词对照。'],
     ['prompt','组装 Prompt','把规则、问题和带编号证据组织成模型输入。','Prompt 不只是把文字相加。系统规则与文档数据要区分；证据保留来源和编号，历史对话也不能替代事实依据。','改变证据数量，观察 [1]、[2] 及消息长度变化。本步与生产问答共享同一个组装器。'],
-    ['generate','生成与引用','真实调用模型，然后核对回答和原文。','模型根据 Prompt 生成文字。程序能检查引用编号是否有效；数字、费用类别和城市是否正确仍需要逐项核对。','检查答案是否说清楚“每人每晚”“最高 650 元”，并区分住宿与餐饮。']
+    ['generate','生成与引用','真实调用模型，然后核对回答和原文。','模型根据 Prompt 生成文字。程序能检查引用编号是否有效；数字、费用类别和城市是否正确仍需要逐项核对。','核对机构、适用条件、数值和引用。资料不足时应该明确说明。']
   ];
   const state = { index:0, run:null, results:{}, busy:false, config:null,
-    settings:{size:220,overlap:40,query:'去上海出差，酒店每晚最高能报销多少钱？',topK:5,threshold:0,recallMode:'hybrid',method:'llm',rerankSource:'retrieved',promptSource:'ranked',evidenceCount:3} };
+    settings:{size:220,overlap:40,query:'去上海出差，酒店每晚最高能报销多少钱？',topK:5,threshold:0,recallMode:'hybrid',fusionTopK:10,method:'configured',rerankSource:'fused',promptSource:'ranked',evidenceCount:3} };
   const node = (tag,cls,text) => { const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n; };
   async function api(path,body,method='POST',base='/api/v1/tutorial') {
     let token='';try { token=sessionStorage.getItem('zhixu.rag.accessToken') || ''; } catch (_) {}
@@ -53,7 +54,7 @@
     const [stage,title,summary,principle,tip]=lessons[state.index];
     $('steps').replaceChildren();lessons.forEach(([key,label],i)=>{
       const button=node('button','step'+(state.index===i?' active':'')+(state.results[key]?' done':''));
-      button.append(node('span','num',String(i+1).padStart(2,'0')),node('strong','',label),node('span','',i<2||i===5?'本地':'模型'));
+      button.append(node('span','num',String(i+1).padStart(2,'0')),node('strong','',label),node('span','',['parse','chunk','fusion','prompt'].includes(key)?'本地':'检索/模型'));
       button.disabled=state.busy;button.setAttribute('aria-current',state.index===i?'step':'false');button.onclick=()=>{state.index=i;error();render();};$('steps').append(button);
     });
     $('lesson-number').textContent='EXPERIMENT '+String(state.index+1).padStart(2,'0');$('lesson-title').textContent=title;
@@ -61,9 +62,10 @@
     $('controls').replaceChildren();const c=$('controls');
     if(stage==='chunk'){c.append(field('分块长度（字符）','size','number'),field('重叠长度（字符）','overlap','number'));}
     if(stage==='retrieve'){c.append(field('召回模式','recallMode','text',[['hybrid','双路召回'],['keyword','关键词 BM25 · 可离线'],['vector','向量 Cosine']]),field('问题','query'),field('Top-K','topK','number'),field('Cosine 阈值 [-1, 1]','threshold','number'));}
-    if(stage==='rerank'){c.append(field('问题','query'),field('候选来源','rerankSource','text',[['retrieved','向量召回的候选'],['fixture','独立候选集（无需入库）']]),field('重排方式','method','text',[['llm','真实 LLM 重排 · DeepSeek'],['bm25','离线 BM25 对照 · 非神经网络'],['configured','使用生产重排配置']]));}
-    if(stage==='prompt'){c.append(field('问题','query'),field('证据来源','promptSource','text',[['ranked','重排后的候选'],['retrieved','向量召回的候选'],['fixture','独立证据集（无需模型）']]),field('证据数量','evidenceCount','number'));}
-    const previews={parse:state.run?.sourcePreview,chunk:state.results.parse?.output.sections.map(s=>s.text).join('\n\n'),embed:state.results.chunk?.output.chunks.map(x=>'#'+x.chunk.index+' '+x.chunk.text).join('\n\n'),retrieve:'问题向量会在点击后生成。页面会把 Qdrant 分数与本地重新计算的 Cosine 放在一起比较。',rerank:'输出会显示每个片段排序前后的名次。独立候选集可以跳过 Embedding 和向量入库。',prompt:'模型实际接收的是 messages：system 规则与 user 问题/证据分开。这里会展示完整消息内容。',generate:'使用第 06 步刚刚展示的 Prompt 调用模型，不会自动添加其他资料。'};
+    if(stage==='fusion'){c.append(field('问题','query'),field('融合后保留数量','fusionTopK','number'));}
+    if(stage==='rerank'){c.append(field('问题','query'),field('候选来源','rerankSource','text',[['fused','融合后的候选'],['retrieved','单路召回对照（双路模式取向量）'],['fixture','独立候选集（无需入库）']]),field('重排方式','method','text',[['llm','真实 LLM 重排 · DeepSeek'],['bm25','离线 BM25 对照 · 非神经网络'],['configured','使用生产重排配置']]));}
+    if(stage==='prompt'){c.append(field('问题','query'),field('证据来源','promptSource','text',[['ranked','重排后的候选'],['fused','融合后的候选'],['retrieved','向量召回的候选'],['fixture','独立证据集（无需模型）']]),field('证据数量','evidenceCount','number'));}
+    const previews={parse:state.run?.sourcePreview,chunk:state.results.parse?.output.sections.map(s=>s.text).join('\n\n'),embed:state.results.chunk?.output.chunks.map(x=>'#'+x.chunk.index+' '+x.chunk.text).join('\n\n'),retrieve:'问题向量会在点击后生成。页面会把 Qdrant 分数与本地重新计算的 Cosine 放在一起比较。',fusion:'输入是第 04 步的两份候选列表。使用相同片段 ID 去重，展示每路贡献。',rerank:'输出会显示每个片段排序前后的名次。独立候选集可以跳过 Embedding 和向量入库。',prompt:'模型实际接收的是 messages：system 规则与 user 问题/证据分开。这里会展示完整消息内容。',generate:'使用第 07 步刚刚展示的 Prompt 调用模型，不会自动添加其他资料。'};
     $('input-preview').textContent=previews[stage] || '先准备一份示例资料，再逐步运行实验。';
     $('execute').disabled=state.busy || !state.config;
     $('execute').textContent=state.busy?'实验运行中…':'运行当前实验 →';
@@ -95,16 +97,30 @@
       const branches=node('div','recall-branches');
       for(const [title,hits,kind] of [['关键词 · BM25',data.keywordHits,'BM25'],['语义 · 向量',data.vectorHits,'Cosine']]){
         const column=node('section');column.append(node('h3','',title));
-        hits.forEach((hit,i)=>{const card=piece('#'+(i+1)+' · '+location(hit),hit.text,kind+' '+hit.score.toFixed(6));
+        hits.forEach((hit,i)=>{const card=piece('#'+(i+1)+' · '+hit.id.slice(0,8)+' · '+location(hit),hit.text,kind+' '+hit.score.toFixed(6));
           if(kind==='Cosine')card.append(node('p','muted','本地复算 '+data.cosineChecks[i].recomputedCosine.toFixed(6)));
           column.append(card);});
         if(!hits.length)column.append(node('p','muted','本路未启用或没有满足条件的命中。'));
         branches.append(column);
       }out.append(branches);
     }
-    if(stage==='rerank'){out.append(metricRow([['候选数量',data.hits.length],['排序方式',result.input.method==='llm'?'LLM':result.input.method==='bm25'?'BM25':'生产配置']]));data.comparison.forEach(row=>{
-      const diff=row.beforeRank-row.afterRank;out.append(piece('原第 '+row.beforeRank+' → 新第 '+row.afterRank,row.hit.text,diff>0?'↑ '+diff:diff<0?'↓ '+(-diff):'顺序不变'));
-    });}
+    if(stage==='fusion'){
+      out.append(metricRow([['去重后候选',data.candidateCount],['保留候选',data.selectedCount],['RRF 常数',data.rankConstant]]));
+      out.append(node('p','muted','RRF = 关键词贡献 + 向量贡献；每路贡献 = 1 / (60 + 名次)，缺席为 0。'));
+      const wrap=node('div','score-table-wrap'),table=node('table','score-table'),head=node('tr');
+      ['片段 ID','关键词名次','向量名次','关键词贡献','向量贡献','RRF'].forEach(label=>head.append(node('th','',label)));table.append(head);
+      data.contributions.forEach(row=>{const tr=node('tr');[row.hit.id.slice(0,8),row.keywordRank??'—',row.vectorRank??'—',row.keywordContribution.toFixed(8),row.vectorContribution.toFixed(8),row.fusedScore.toFixed(8)].forEach(value=>tr.append(node('td','',String(value))));table.append(tr);});
+      wrap.append(table);out.append(wrap);
+      data.hits.forEach((hit,i)=>out.append(piece('#'+(i+1)+' · '+hit.id.slice(0,8)+' · '+location(hit),hit.text,'RRF '+hit.score.toFixed(8))));
+    }
+    if(stage==='rerank'){
+      out.append(metricRow([['候选数量',data.hits.length],['模型',data.model],['分数类型',data.scoreType]]));
+      out.append(node('p','muted',data.scoreType==='ORDER_ONLY'?'LLM 只输出顺序，没有数值重排分数。':data.scoreType==='RAW_RELEVANCE'?'智谱原始相关性分数，可大于 1 或小于 0；不是概率，与输入 RRF 分数不是同一量纲。':'模型相关性 / BM25 分数，不是答案正确概率。'));
+      data.comparison.forEach(row=>{
+        const card=piece('原第 '+row.beforeRank+' → 新第 '+row.afterRank+' · '+row.hit.id.slice(0,8),row.hit.text);
+        card.append(node('p','score-detail','输入 '+data.inputScoreType+'：'+row.beforeScore.toPrecision(9)+'  |  重排 '+data.scoreType+'：'+(row.rerankScore===null?'不提供':row.rerankScore.toPrecision(9))));out.append(card);
+      });
+    }
     if(stage==='prompt'){out.append(metricRow([['使用证据',data.selectedCount],['消息字符数',data.characters]]));data.messages.forEach(m=>{const card=piece(m.role.toUpperCase(),'');card.querySelector('p').className='prompt-message';card.querySelector('p').textContent=m.content;out.append(card);});}
     if(stage==='generate'){out.append(node('div','answer',data.answer));out.append(node('p','muted',data.citationNumbersValid?'引用编号可对应本轮证据；事实仍需核对。':'回答没有有效引用编号，请核对原文。'));data.citations.forEach((hit,i)=>out.append(piece('['+(i+1)+'] '+hit.filename+' · '+location(hit),hit.text)));}
     const notes=node('div','notes');result.notes.forEach(text=>notes.append(node('p','',text)));out.append(notes);
@@ -119,6 +135,7 @@
     const s=state.settings;let body={};
     if(stage==='chunk')body={size:s.size,overlap:s.overlap};
     if(stage==='retrieve')body={query:s.query,topK:s.topK,threshold:s.threshold,mode:s.recallMode};
+    if(stage==='fusion')body={query:s.query,topK:s.fusionTopK};
     if(stage==='rerank')body={query:s.query,method:s.method,source:s.rerankSource};
     if(stage==='prompt')body={question:s.query,topK:s.evidenceCount,source:s.promptSource};
     const result=await api('/runs/'+state.run.runId+'/'+stage,body);
@@ -135,7 +152,7 @@
   $('sample').onchange=()=>{$('download-sample').href='/api/v1/tutorial/samples/'+$('sample').value;};
   $('download-sample').onclick=event=>{event.preventDefault();busy(async()=>{let token='';try{token=sessionStorage.getItem('zhixu.rag.accessToken')||'';}catch(_){}const response=await fetch($('download-sample').href,{headers:token?{Authorization:'Bearer '+token}:{}});if(!response.ok)throw new Error('下载失败，请检查服务令牌');const url=URL.createObjectURL(await response.blob());const a=node('a');a.href=url;a.download='demo-handbook.'+$('sample').value;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});};
   $('clear').onclick=()=>busy(async()=>{await api('/runs/'+state.run.runId,undefined,'DELETE');state.run=null;state.results={};});
-  $('run-all').onclick=()=>busy(async()=>{if(!state.run)await prepare($('sample').value);state.settings.rerankSource='retrieved';state.settings.promptSource='ranked';for(let i=0;i<lessons.length;i++){state.index=i;render();await execute(lessons[i][0]);render();}});
+  $('run-all').onclick=()=>busy(async()=>{if(!state.run)await prepare($('sample').value);state.settings.rerankSource='fused';state.settings.promptSource='ranked';for(let i=0;i<lessons.length;i++){state.index=i;render();await execute(lessons[i][0]);render();}});
   $('export-stage').onclick=()=>download(state.results[lessons[state.index][0]],'rag-'+lessons[state.index][0]+'.json');
   $('export-all').onclick=()=>download({run:state.run,stages:state.results},'rag-tutorial-'+state.run.runId+'.json');
   let corpus={items:[],questions:[]};

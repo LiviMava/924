@@ -30,6 +30,8 @@ public class Reranker {
     }
     public boolean configured() { return mode.equals("llm")?models!=null && models.chatConfigured():!config.rerankUrl().isBlank() && !config.rerankModel().isBlank(); }
     public String mode() { return mode; }
+    public String scoreType() { return mode.equals("llm")?"ORDER_ONLY":rawScores?"RAW_RELEVANCE":"RELEVANCE"; }
+    public String model() { return config.rerankModel(); }
     /** Cohere-compatible rerank HTTP contract, also supported by multiple inference gateways. */
     public List<SearchHit> rerank(String query, List<SearchHit> hits, int topK) {
         if(hits.isEmpty())return List.of();

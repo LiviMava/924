@@ -1,0 +1,159 @@
+{
+  "runId": "5cbf5e45-8016-40a4-8ebf-44d41ae969e6",
+  "stage": "rerank",
+  "mode": "LIVE_CONFIGURED_RERANK",
+  "input": {
+    "source": "fixture",
+    "candidates": [
+      {
+        "id": "fixture-0",
+        "documentId": "5cbf5e45-8016-40a4-8ebf-44d41ae969e6",
+        "filename": "重排独立练习（虚构）.txt",
+        "page": null,
+        "section": "候选段落",
+        "text": "上海办公室会议餐饮预算为每人80元，会议室需提前预约。",
+        "score": 0.0
+      },
+      {
+        "id": "fixture-1",
+        "documentId": "5cbf5e45-8016-40a4-8ebf-44d41ae969e6",
+        "filename": "重排独立练习（虚构）.txt",
+        "page": null,
+        "section": "候选段落",
+        "text": "员工到北京出差，酒店住宿上限为每人每晚550元。",
+        "score": 0.0
+      },
+      {
+        "id": "fixture-2",
+        "documentId": "5cbf5e45-8016-40a4-8ebf-44d41ae969e6",
+        "filename": "重排独立练习（虚构）.txt",
+        "page": null,
+        "section": "候选段落",
+        "text": "员工到上海出差，酒店住宿按实际支出报销，每人每晚最高650元；餐饮和交通另计。",
+        "score": 0.0
+      },
+      {
+        "id": "fixture-3",
+        "documentId": "5cbf5e45-8016-40a4-8ebf-44d41ae969e6",
+        "filename": "重排独立练习（虚构）.txt",
+        "page": null,
+        "section": "候选段落",
+        "text": "差旅报销应在出差结束后15个工作日内提交，并提供酒店发票和出差审批单。",
+        "score": 0.0
+      }
+    ],
+    "method": "configured",
+    "query": "去上海出差，酒店每晚最高能报销多少钱？"
+  },
+  "output": {
+    "hits": [
+      {
+        "id": "fixture-2",
+        "documentId": "5cbf5e45-8016-40a4-8ebf-44d41ae969e6",
+        "filename": "重排独立练习（虚构）.txt",
+        "page": null,
+        "section": "候选段落",
+        "text": "员工到上海出差，酒店住宿按实际支出报销，每人每晚最高650元；餐饮和交通另计。",
+        "score": 24.234375
+      },
+      {
+        "id": "fixture-1",
+        "documentId": "5cbf5e45-8016-40a4-8ebf-44d41ae969e6",
+        "filename": "重排独立练习（虚构）.txt",
+        "page": null,
+        "section": "候选段落",
+        "text": "员工到北京出差，酒店住宿上限为每人每晚550元。",
+        "score": 18.34375
+      },
+      {
+        "id": "fixture-3",
+        "documentId": "5cbf5e45-8016-40a4-8ebf-44d41ae969e6",
+        "filename": "重排独立练习（虚构）.txt",
+        "page": null,
+        "section": "候选段落",
+        "text": "差旅报销应在出差结束后15个工作日内提交，并提供酒店发票和出差审批单。",
+        "score": 15.8125
+      },
+      {
+        "id": "fixture-0",
+        "documentId": "5cbf5e45-8016-40a4-8ebf-44d41ae969e6",
+        "filename": "重排独立练习（虚构）.txt",
+        "page": null,
+        "section": "候选段落",
+        "text": "上海办公室会议餐饮预算为每人80元，会议室需提前预约。",
+        "score": 15.3515625
+      }
+    ],
+    "inputScoreType": "FIXTURE",
+    "modelOutput": "",
+    "model": "rerank",
+    "comparison": [
+      {
+        "beforeRank": 3,
+        "afterRank": 1,
+        "hit": {
+          "id": "fixture-2",
+          "documentId": "5cbf5e45-8016-40a4-8ebf-44d41ae969e6",
+          "filename": "重排独立练习（虚构）.txt",
+          "page": null,
+          "section": "候选段落",
+          "text": "员工到上海出差，酒店住宿按实际支出报销，每人每晚最高650元；餐饮和交通另计。",
+          "score": 24.234375
+        },
+        "beforeScore": 0.0,
+        "rerankScore": 24.234375
+      },
+      {
+        "beforeRank": 2,
+        "afterRank": 2,
+        "hit": {
+          "id": "fixture-1",
+          "documentId": "5cbf5e45-8016-40a4-8ebf-44d41ae969e6",
+          "filename": "重排独立练习（虚构）.txt",
+          "page": null,
+          "section": "候选段落",
+          "text": "员工到北京出差，酒店住宿上限为每人每晚550元。",
+          "score": 18.34375
+        },
+        "beforeScore": 0.0,
+        "rerankScore": 18.34375
+      },
+      {
+        "beforeRank": 4,
+        "afterRank": 3,
+        "hit": {
+          "id": "fixture-3",
+          "documentId": "5cbf5e45-8016-40a4-8ebf-44d41ae969e6",
+          "filename": "重排独立练习（虚构）.txt",
+          "page": null,
+          "section": "候选段落",
+          "text": "差旅报销应在出差结束后15个工作日内提交，并提供酒店发票和出差审批单。",
+          "score": 15.8125
+        },
+        "beforeScore": 0.0,
+        "rerankScore": 15.8125
+      },
+      {
+        "beforeRank": 1,
+        "afterRank": 4,
+        "hit": {
+          "id": "fixture-0",
+          "documentId": "5cbf5e45-8016-40a4-8ebf-44d41ae969e6",
+          "filename": "重排独立练习（虚构）.txt",
+          "page": null,
+          "section": "候选段落",
+          "text": "上海办公室会议餐饮预算为每人80元，会议室需提前预约。",
+          "score": 15.3515625
+        },
+        "beforeScore": 0.0,
+        "rerankScore": 15.3515625
+      }
+    ],
+    "scoreType": "RAW_RELEVANCE"
+  },
+  "notes": [
+    "LLM 模式真实调用聊天模型对整组候选排序，不是 Cross-Encoder；不虚构相关性分数。BM25 是离线关键词对照，不是神经网络重排。",
+    "本步使用明确编写的独立候选集，输入顺序用于教学，不代表真实向量召回排名。"
+  ],
+  "elapsedMs": 396
+}

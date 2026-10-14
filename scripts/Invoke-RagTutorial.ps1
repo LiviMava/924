@@ -1,9 +1,10 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('all','parse','chunk','embed','retrieve','rerank','prompt','generate')] [string] $Stage = 'all',
+    [ValidateSet('all','parse','chunk','embed','retrieve','fusion','rerank','prompt','generate')] [string] $Stage = 'all',
     [ValidateSet('md','docx','pdf')] [string] $Sample = 'md',
-    [ValidateSet('llm','bm25','configured')] [string] $RerankMethod = 'llm',
+    [ValidateSet('llm','bm25','configured')] [string] $RerankMethod = 'configured',
     [string] $Query = '去上海出差，酒店每晚最高能报销多少钱？',
+    [ValidateRange(1,24)] [int] $FusionTopK = 10,
     [int] $Size = 220, [int] $Overlap = 40, [int] $TopK = 5, [double] $Threshold = 0,
     [string] $BaseUrl = 'http://127.0.0.1:8090',
     [ValidateSet('keyword','vector','hybrid')] [string] $RecallMode = 'hybrid',
@@ -30,16 +31,17 @@ function Invoke-TutorialApi([string] $Path, $Body, [string] $Method = 'POST') {
     return (Invoke-WebRequest @params).Content | ConvertFrom-Json
 }
 $plan = switch ($Stage) {
-    'all' { @('parse','chunk','embed','retrieve','rerank','prompt','generate') }
+    'all' { @('parse','chunk','embed','retrieve','fusion','rerank','prompt','generate') }
     'parse' { @('parse') }
     'chunk' { @('parse','chunk') }
     'embed' { @('parse','chunk','embed') }
     'retrieve' { @('parse','chunk','embed','retrieve') }
+    'fusion' { @('parse','chunk','embed','retrieve','fusion') }
     'rerank' { @('rerank') }
     'prompt' { @('prompt') }
     'generate' { @('prompt','generate') }
 }
-if ($RecallMode -eq 'keyword' -and $Stage -eq 'retrieve') { $plan = @('parse','chunk','retrieve') }
+if ($RecallMode -eq 'keyword' -and $Stage -in @('retrieve','fusion')) { $plan = @('parse','chunk','retrieve'); if ($Stage -eq 'fusion') { $plan += 'fusion' } }
 $tutorialRun = $null
 $completed = @()
 $utf8 = New-Object Text.UTF8Encoding($false)
@@ -52,7 +54,8 @@ try {
         $body = switch ($step) {
             'chunk' { @{ size = $Size; overlap = $Overlap } }
             'retrieve' { @{ query = $Query; topK = $TopK; threshold = $Threshold; mode = $RecallMode } }
-            'rerank' { @{ query = $Query; method = $RerankMethod; source = $(if ($Stage -eq 'all') { 'retrieved' } else { 'fixture' }) } }
+            'fusion' { @{ query = $Query; topK = $FusionTopK } }
+            'rerank' { @{ query = $Query; method = $RerankMethod; source = $(if ($Stage -eq 'all') { 'fused' } else { 'fixture' }) } }
             'prompt' { @{ question = $Query; topK = 3; source = $(if ($Stage -eq 'all') { 'ranked' } else { 'fixture' }) } }
             default { @{} }
         }

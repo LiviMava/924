@@ -45,6 +45,8 @@ class TutorialApiIntegrationTest {
         assertEquals(400,call("POST","/api/v1/tutorial/runs","{\"sample\":\"../../secret\"}",true,null).statusCode());
         assertEquals(400,call("POST","/api/v1/tutorial/runs/id/chunk","{\"size\":20,\"overlap\":0}",true,null).statusCode());
         assertEquals(400,call("POST","/api/v1/tutorial/runs/id/retrieve","{\"query\":\"test\",\"topK\":1000,\"threshold\":0}",true,null).statusCode());
+        assertEquals(400,call("POST","/api/v1/tutorial/runs/id/fusion","{\"query\":\"test\",\"topK\":25}",true,null).statusCode());
+        assertEquals(401,call("POST","/api/v1/tutorial/runs/id/fusion","{\"query\":\"test\",\"topK\":5}",false,null).statusCode());
         assertEquals(400,call("POST","/api/v1/tutorial/runs/from-document","{\"documentId\":\"../../file\",\"fromPage\":1,\"toPage\":2}",true,null).statusCode());
         verifyNoInteractions(service);
     }

@@ -99,10 +99,44 @@ class TutorialServiceTest {
         var embedded=json.valueToTree(service.embed("owner",id));String collection=embedded.path("output").path("database").path("collection").asText();
         assertTrue(collection.startsWith("rag_tutorial_"));assertTrue(embedded.path("output").path("database").path("pointsCount").asInt()>1);
         String query="酒店每晚能报多少？";var retrieved=service.retrieve("owner",id,new TutorialController.RetrieveRequest(query,5,0));assertTrue(json.valueToTree(retrieved).path("output").path("hits").size()>0);
-        service.rerank("owner",id,new TutorialController.RerankRequest(query,"bm25","retrieved"));service.prompt("owner",id,new TutorialController.PromptRequest(query,3,"ranked"));
+        service.fusion("owner",id,new TutorialController.FusionRequest(query,10));
+        service.rerank("owner",id,new TutorialController.RerankRequest(query,"bm25","fused"));service.prompt("owner",id,new TutorialController.PromptRequest(query,3,"ranked"));
         when(models.tutorialAnswer(any())).thenReturn("住宿最高650元。[1]");var answer=json.valueToTree(service.generate("owner",id));assertTrue(answer.path("output").path("citationNumbersValid").asBoolean());assertFalse(answer.path("output").path("factsVerified").asBoolean());
         service.chunk("owner",id,new TutorialController.ChunkRequest(800,120));assertFalse(collections.containsKey(collection));
         assertFalse(json.valueToTree(service.state("owner",id)).path("stages").has("generate"));assertThrows(ResponseStatusException.class,()->service.generate("owner",id));
+        assertFalse(json.valueToTree(service.state("owner",id)).path("stages").has("fusion"));
+    }
+    @Test void recallingAgainInvalidatesFusionAndRerankingAndCannotReuseAFormerQuestion() throws Exception {
+        String id=run();service.parse("owner",id);service.chunk("owner",id,new TutorialController.ChunkRequest(220,40));
+        assertThrows(ResponseStatusException.class,()->service.fusion("owner",id,new TutorialController.FusionRequest("上海",10)));
+        service.retrieve("owner",id,new TutorialController.RetrieveRequest("上海",5,0,"keyword"));
+        assertThrows(ResponseStatusException.class,()->service.rerank("owner",id,new TutorialController.RerankRequest("上海","bm25","fused")));
+        service.fusion("owner",id,new TutorialController.FusionRequest("上海",10));
+        service.rerank("owner",id,new TutorialController.RerankRequest("上海","bm25","fused"));
+        service.prompt("owner",id,new TutorialController.PromptRequest("上海",3,"ranked"));
+        service.retrieve("owner",id,new TutorialController.RetrieveRequest("北京",5,0,"keyword"));
+        var stages=json.valueToTree(service.state("owner",id)).path("stages");
+        assertFalse(stages.has("fusion"));assertFalse(stages.has("rerank"));assertFalse(stages.has("prompt"));
+        assertThrows(ResponseStatusException.class,()->service.fusion("owner",id,new TutorialController.FusionRequest("上海",10)));
+        assertThrows(ResponseStatusException.class,()->service.prompt("owner",id,new TutorialController.PromptRequest("上海",3,"fused")));
+        service.fusion("owner",id,new TutorialController.FusionRequest("北京",10));
+    }
+    @Test void configuredRerankDisplaysProviderScoreSeparatelyFromInputFusionScore() throws Exception {
+        var ranker=mock(Reranker.class);when(ranker.configured()).thenReturn(true);when(ranker.mode()).thenReturn("http");
+        when(ranker.model()).thenReturn("rerank");when(ranker.scoreType()).thenReturn("RAW_RELEVANCE");
+        when(ranker.rerank(anyString(),anyList(),anyInt())).thenAnswer(inv->{
+            List<SearchHit> hits=inv.getArgument(1);return List.of(hits.get(hits.size()-1).withScore(9.123456));
+        });
+        var configured=new TutorialService(properties,models,new DocumentParser(),new PromptAssembler(json),ranker,json);
+        String id=json.valueToTree(configured.create("owner","md")).path("runId").asText();
+        configured.parse("owner",id);configured.chunk("owner",id,new TutorialController.ChunkRequest(220,40));
+        configured.retrieve("owner",id,new TutorialController.RetrieveRequest("上海",5,0,"keyword"));
+        var fused=json.valueToTree(configured.fusion("owner",id,new TutorialController.FusionRequest("上海",10))).path("output").path("hits");
+        var ranked=json.valueToTree(configured.rerank("owner",id,new TutorialController.RerankRequest("上海","configured","fused"))).path("output");
+        assertEquals("RRF",ranked.path("inputScoreType").asText());assertEquals("RAW_RELEVANCE",ranked.path("scoreType").asText());
+        assertEquals(fused.get(fused.size()-1).path("score").asDouble(),ranked.path("comparison").get(0).path("beforeScore").asDouble());
+        assertEquals(9.123456,ranked.path("comparison").get(0).path("rerankScore").asDouble());
+        assertEquals("rerank",ranked.path("model").asText());configured.delete("owner",id);
     }
     @Test void embeddingMismatchNeverUpsertsAndCleanupCannotTouchProductionCollection() throws Exception {
         String id=run();service.parse("owner",id);service.chunk("owner",id,new TutorialController.ChunkRequest(220,40));

@@ -1,11 +1,11 @@
-# 06 · 拼接 Prompt：证据如何成为模型输入
+# 07 · 拼接 Prompt：证据如何成为模型输入
 
 Prompt 组装决定模型看到哪些信息，以及每种信息扮演什么角色。RAG 没有把知识永久写进模型参数，而是在当前请求中把证据放入上下文。
 
 ## 独立演示
 
 ```powershell
-.\tutorial\demos\06-prompt.ps1
+.\tutorial\demos\07-prompt.ps1
 ```
 
 本步使用明确的独立证据集，不调用 Embedding 或聊天 API。完整链路则取重排后的 Top-N。输入为问题、证据来源和数量，输出为实际消息数组与引用来源。[实测快照](outputs/prompt.json)

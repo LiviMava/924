@@ -3,6 +3,7 @@ package chatbot.chat.rag.retrieval;
 import java.util.*;
 
 public final class ReciprocalRankFusion {
+    public static final int RANK_CONSTANT=60;
     private ReciprocalRankFusion() {}
     /** Scores are rank-fusion scores, not probabilities. Stable ties make evaluation reproducible. */
     public static List<VectorIndex.Match> fuse(List<List<VectorIndex.Match>> lists) {
@@ -11,7 +12,7 @@ public final class ReciprocalRankFusion {
             Set<String> seen = new HashSet<>();
             int rank = 0;
             for (var match : list) {
-                if (seen.add(match.id())) scores.merge(match.id(), 1.0 / (60 + ++rank), Double::sum);
+                if (seen.add(match.id())) scores.merge(match.id(), 1.0 / (RANK_CONSTANT + ++rank), Double::sum);
             }
         }
         return scores.entrySet().stream().map(e -> new VectorIndex.Match(e.getKey(),e.getValue()))

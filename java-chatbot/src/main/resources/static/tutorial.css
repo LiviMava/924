@@ -84,3 +84,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,su
 
 .recall-branches { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px; }
 @media(max-width:1200px) { .recall-branches { grid-template-columns:1fr; } }
+
+.score-table-wrap { overflow:auto; }
+.score-table { width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums; }
+.score-table th,.score-table td { padding:10px 8px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap; }
+.score-detail { font-family:monospace;font-variant-numeric:tabular-nums;overflow-wrap:anywhere; }

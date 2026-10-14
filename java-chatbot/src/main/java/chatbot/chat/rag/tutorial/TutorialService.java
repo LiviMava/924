@@ -48,8 +48,8 @@ public class TutorialService {
         final QdrantIndex index;
         List<ParsedSection> sections=List.of();List<TextChunk> chunks=List.of();
         List<ChunkRecord> records=List.of();List<float[]> vectors=List.of();
-        List<SearchHit> recalled=List.of(),keywordRecalled=List.of(),vectorRecalled=List.of(),ranked=List.of(),evidence=List.of();
-        String query="",recalledQuery="",rankedQuery="";Prompt prompt;boolean indexTouched;
+        List<SearchHit> recalled=List.of(),keywordRecalled=List.of(),vectorRecalled=List.of(),fused=List.of(),ranked=List.of(),evidence=List.of();
+        String query="",recalledQuery="",fusedQuery="",rankedQuery="";Prompt prompt;boolean indexTouched;
         int fromPage=0,toPage=0;
         Run(String owner,Path source,String filename,boolean uploaded,Function<String,QdrantIndex> factory) {
             this.owner=owner;this.source=source;this.filename=filename;this.uploaded=uploaded;index=factory.apply(id);
@@ -131,7 +131,7 @@ public class TutorialService {
     private void invalidate(Run r,String... stages) { for(String stage:stages) r.stages.remove(stage); }
     private void clearIndex(Run r) {
         if(r.indexTouched) { r.index.deleteTutorialCollection();r.indexTouched=false; }
-        r.vectors=List.of();r.queries.clear();r.keywordRecalled=List.of();r.vectorRecalled=List.of();r.recalled=List.of();r.ranked=List.of();r.prompt=null;r.evidence=List.of();
+        r.vectors=List.of();r.queries.clear();r.keywordRecalled=List.of();r.vectorRecalled=List.of();r.recalled=List.of();r.fused=List.of();r.fusedQuery="";r.ranked=List.of();r.prompt=null;r.evidence=List.of();
     }
     public Stage parse(String owner,String id) { return operate(owner,id,"parse",r->{
         long start=System.nanoTime();var sections=parser.parse(r.source,r.filename);
@@ -140,7 +140,7 @@ public class TutorialService {
             require(!sections.isEmpty(),"所选页面不存在或未提取到文字，请换一个页码");
         }
         if(sections.stream().mapToInt(s->s.text().length()).sum()>MAX_TEXT) throw new IllegalArgumentException("教学文档提取文字须少于 20000 字符");
-        clearIndex(r);r.sections=sections;r.chunks=List.of();r.records=List.of();invalidate(r,"chunk","embed","retrieve","rerank","prompt","generate");
+        clearIndex(r);r.sections=sections;r.chunks=List.of();r.records=List.of();invalidate(r,"chunk","embed","retrieve","fusion","rerank","prompt","generate");
         return result(r,"parse","LOCAL_PARSER",Map.of("filename",r.filename,"fromPage",r.fromPage,"toPage",r.toPage),Map.of("sections",sections,"sectionCount",sections.size(),"characters",sections.stream().mapToInt(s->s.text().length()).sum()),start,
             "复用生产 DocumentParser；PDF 保留物理页码，Word 保留章节与表格顺序，不虚构 Word 页码。","PDF 示例为英文文本；Word 和 Markdown 示例为中文。扫描 PDF 需要 OCR，当前不支持。");
     }); }
@@ -150,7 +150,7 @@ public class TutorialService {
         if(chunks.size()>MAX_CHUNKS) throw new IllegalArgumentException("教学最多 24 个片段，请增大分块长度或缩小文档");
         clearIndex(r);r.chunks=chunks;
         r.records=chunks.stream().map(c->new ChunkRecord(UUID.nameUUIDFromBytes((r.id+":"+c.index()).getBytes(StandardCharsets.UTF_8)).toString(),r.id,c.index(),c.text(),c.page(),c.section())).toList();
-        invalidate(r,"embed","retrieve","rerank","prompt","generate");
+        invalidate(r,"embed","retrieve","fusion","rerank","prompt","generate");
         List<Object> items=new ArrayList<>();for(var c:chunks) {
             int shared=0;if(c.index()>0 && Objects.equals(c.page(),chunks.get(c.index()-1).page()) && c.section().equals(chunks.get(c.index()-1).section())) {
                 String previous=chunks.get(c.index()-1).text();for(int n=Math.min(previous.length(),c.text().length());n>0;n--) if(previous.endsWith(c.text().substring(0,n))) { shared=n;break; }
@@ -200,13 +200,24 @@ public class TutorialService {
         }
         r.keywordRecalled=List.copyOf(keywords);r.vectorRecalled=List.copyOf(vectors);
         r.query=body.query();r.recalledQuery=body.query();r.recalled=body.mode().equals("keyword")?r.keywordRecalled:r.vectorRecalled;
-        r.ranked=List.of();r.prompt=null;r.evidence=List.of();invalidate(r,"rerank","prompt","generate");
+        r.fused=List.of();r.fusedQuery="";r.ranked=List.of();r.prompt=null;r.evidence=List.of();invalidate(r,"fusion","rerank","prompt","generate");
         return result(r,"retrieve",body.mode().equals("keyword")?"LOCAL_KEYWORD_RECALL":body.mode().equals("vector")?"LIVE_VECTOR_RECALL":"LIVE_DUAL_RECALL",body,
             Map.of("queryVector",querySummary,"hits",r.recalled,"cosineChecks",checks,"hitCount",r.recalled.size(),
                 "keywordHits",keywords,"vectorHits",vectors,"keywordScoreType","BM25","vectorScoreType","COSINE"),start,
             "关键词召回在本轮全部分块上运行 Lucene BM25；未命中关键词的片段不会补零进入结果。",
             "向量召回使用真实 Qdrant；问题和文档使用同一 Embedding 模型。阈值只作用于向量分支。",
             "两路各自保留 Top-K；BM25 与 Cosine 量纲不同，不直接相加，也不是答案正确概率。");
+    }); }
+    public Stage fusion(String owner,String id,TutorialController.FusionRequest body) { return operate(owner,id,"fusion",r->{
+        long start=System.nanoTime();require(body.query().equals(r.recalledQuery),"问题已改变，请重新召回");
+        require(!r.keywordRecalled.isEmpty() || !r.vectorRecalled.isEmpty(),"先召回至少一路非空候选");
+        var fused=TutorialFusion.fuse(r.keywordRecalled,r.vectorRecalled,body.topK());
+        r.fused=fused.hits();r.fusedQuery=body.query();r.ranked=List.of();r.prompt=null;r.evidence=List.of();invalidate(r,"rerank","prompt","generate");
+        return result(r,"fusion","LOCAL_RRF",Map.of("query",body.query(),"topK",body.topK(),"keywordHits",r.keywordRecalled,"vectorHits",r.vectorRecalled),
+            Map.of("hits",r.fused,"contributions",fused.contributions(),"candidateCount",fused.candidateCount(),"selectedCount",r.fused.size(),
+                "rankConstant",ReciprocalRankFusion.RANK_CONSTANT,"formula","sum(1 / (60 + rank)); absent branch = 0","scoreType","RRF"),start,
+            "复用生产 ReciprocalRankFusion，按片段 ID 去重；同分时按 ID 稳定排序。",
+            "每路只用名次计算贡献，不直接相加 BM25 与 Cosine；单路缺席贡献为 0。融合不会调用模型，也不是语义重排。");
     }); }
     static double cosine(float[] a,float[] b) {
         if(a.length!=b.length) throw new IllegalArgumentException("向量维度不一致");double dot=0,aa=0,bb=0;
@@ -223,6 +234,7 @@ public class TutorialService {
     public Stage rerank(String owner,String id,TutorialController.RerankRequest body) { return operate(owner,id,"rerank",r->{
         long start=System.nanoTime();List<SearchHit> before;
         if(body.source().equals("fixture")) before=fixtureHits(r);
+        else if(body.source().equals("fused")) { require(body.query().equals(r.fusedQuery),"问题已改变，请重新召回并融合");require(!r.fused.isEmpty(),"先运行融合");before=r.fused; }
         else { require(body.query().equals(r.recalledQuery),"问题已改变，请重新召回");require(!r.recalled.isEmpty(),"先召回候选，或选择独立候选集");before=r.recalled; }
         List<SearchHit> after;String raw="";
         if(body.method().equals("bm25")) after=TutorialRanking.bm25(body.query(),before);
@@ -238,17 +250,21 @@ public class TutorialService {
         List<Object> comparison=new ArrayList<>();for(int i=0;i<after.size();i++) {
             var hit=after.get(i);int original=-1;for(int j=0;j<before.size();j++) if(before.get(j).id().equals(hit.id())) original=j;
             Map<String,Object> row=new LinkedHashMap<>();row.put("beforeRank",original+1);row.put("afterRank",i+1);row.put("hit",hit);
+            row.put("beforeScore",before.get(original).score());
             row.put("rerankScore",body.method().equals("llm") || body.method().equals("configured") && reranker.mode().equals("llm") ? null : hit.score());comparison.add(row);
         }
         return result(r,"rerank",body.method().equals("llm") ? "LIVE_LLM_LISTWISE" : body.method().equals("bm25") ? "LOCAL_BM25_BASELINE" : "LIVE_CONFIGURED_RERANK",
-            Map.of("query",body.query(),"method",body.method(),"source",body.source(),"candidates",before),Map.of("hits",after,"comparison",comparison,"modelOutput",raw),start,
+            Map.of("query",body.query(),"method",body.method(),"source",body.source(),"candidates",before),Map.of("hits",after,"comparison",comparison,"modelOutput",raw,
+                "scoreType",body.method().equals("llm")?"ORDER_ONLY":body.method().equals("bm25")?"BM25":reranker.scoreType(),
+                "model",body.method().equals("llm")?properties.chat().model():body.method().equals("bm25")?"Lucene BM25":reranker.mode().equals("llm")?properties.chat().model():reranker.model(),
+                "inputScoreType",body.source().equals("fused")?"RRF":body.source().equals("fixture")?"FIXTURE":r.vectorRecalled.isEmpty()?"BM25":"COSINE"),start,
             "LLM 模式真实调用聊天模型对整组候选排序，不是 Cross-Encoder；不虚构相关性分数。BM25 是离线关键词对照，不是神经网络重排。",
             body.source().equals("fixture") ? "本步使用明确编写的独立候选集，输入顺序用于教学，不代表真实向量召回排名。" : "重排只处理已召回的候选，无法找回没被召回的文档；顺序没有变化也是有效结果。");
     }); }
     public Stage prompt(String owner,String id,TutorialController.PromptRequest body) { return operate(owner,id,"prompt",r->{
         long start=System.nanoTime();List<SearchHit> hits;
         if(body.source().equals("fixture")) hits=List.of(fixtureHits(r).get(2),fixtureHits(r).get(3));
-        else { require(body.question().equals(body.source().equals("ranked") ? r.rankedQuery : r.recalledQuery),"问题已改变，请重新召回或重排");hits=body.source().equals("ranked") ? r.ranked : r.recalled;require(!hits.isEmpty(),"当前无证据，请先完成召回/重排或选择独立证据集"); }
+        else { require(body.question().equals(body.source().equals("ranked") ? r.rankedQuery : body.source().equals("fused")?r.fusedQuery:r.recalledQuery),"问题已改变，请重新召回、融合或重排");hits=body.source().equals("ranked") ? r.ranked : body.source().equals("fused")?r.fused:r.recalled;require(!hits.isEmpty(),"当前无证据，请先完成召回/重排或选择独立证据集"); }
         r.evidence=hits.stream().limit(body.topK()).toList();r.query=body.question();r.prompt=prompts.assemble(body.question(),List.of(),r.evidence);invalidate(r,"generate");
         var messages=r.prompt.getInstructions().stream().map(m->Map.of("role",m.getMessageType().getValue(),"content",m.getText())).toList();
         return result(r,"prompt","SHARED_PRODUCTION_PROMPT",body,Map.of("messages",messages,"citations",r.evidence,"characters",messages.stream().mapToInt(m->m.get("content").length()).sum(),"selectedCount",r.evidence.size()),start,

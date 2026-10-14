@@ -1,0 +1,22 @@
+{
+  "recordedAtUtc": "2026-10-14T16:30:59.7600122Z",
+  "stageCount": 8,
+  "keywordCount": 5,
+  "vectorCount": 5,
+  "fusedCount": 5,
+  "rerankModel": "rerank",
+  "scoreType": "RAW_RELEVANCE",
+  "scoreRange": [
+    15.8984375,
+    22.328125
+  ],
+  "checks": {
+    "formula": true,
+    "deduplication": true,
+    "scoresMatchReturnedHits": true,
+    "descendingProviderScores": true,
+    "answerAndCitationSmoke": true,
+    "cleanupConfirmedByApi": true,
+    "collectionAbsentInQdrant": true
+  }
+}

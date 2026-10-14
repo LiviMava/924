@@ -52,11 +52,11 @@ Copy-Item .env.example .local.env
 
 ## RAG 教程与逐步实验
 
-打开 [RAG 教学实验室](http://127.0.0.1:8090/tutorial.html)，观察解析、分块、真实 Embedding 入库、向量召回、重排、Prompt 和生成的实际输入输出。Start-Local 自动启用本地教学接口，其他启动方式默认关闭；教学索引与公司知识库隔离。
+打开 [RAG 教学实验室](http://127.0.0.1:8090/tutorial.html)，观察解析、分块、真实 Embedding 入库、关键词与向量召回、RRF 融合、重排、Prompt 和生成的实际输入输出。Start-Local 自动启用本地教学接口，其他启动方式默认关闭；教学索引与公司知识库隔离。
 
-[完整讲义、七个独立 demo 和讲师安排](tutorial/README.md)。命令行完整流程：`./scripts/Invoke-RagTutorial.ps1 -Stage all`。独立重排默认实际调用聊天模型，另有明确标注的离线 BM25 对照；本机已配置智谱 `rerank` 专用重排，选择 `configured` 即可使用，详见 [配置说明](docs/GLM_RERANK.md)。
+[完整讲义、八个独立 demo 和讲师安排](tutorial/README.md)。命令行完整流程：`./scripts/Invoke-RagTutorial.ps1 -Stage all`。重排默认实际调用智谱模型，并展示原始相关性分数，另有明确标注的离线 BM25 对照；本机已配置智谱 `rerank` 专用重排，选择 `configured` 即可使用，详见 [配置说明](docs/GLM_RERANK.md)。
 
-[百份公开手册实验](evals/handbooks/README.md)提供 100 个固定版本的 PDF 来源、断点下载/入库脚本，以及 9 道检查事实和引用页码的真实问答回归。教学页可以从任意已入库手册选择 1–3 页运行七步，也可以对完整手册提问。原始第三方 PDF 保留在本地，仓库保存来源和校验值。
+[百份公开手册实验](evals/handbooks/README.md)提供 100 个固定版本的 PDF 来源、断点下载/入库脚本，以及 9 道检查事实和引用页码的真实问答回归。教学页可以从任意已入库手册选择 1–3 页运行八步，也可以对完整手册提问。原始第三方 PDF 保留在本地，仓库保存来源和校验值。
 
 ## 技术选择
 

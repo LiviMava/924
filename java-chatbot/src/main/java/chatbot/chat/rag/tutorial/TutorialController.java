@@ -21,10 +21,11 @@ public class TutorialController {
         public RetrieveRequest { if(mode==null)mode="hybrid"; }
         public RetrieveRequest(String query,int topK,double threshold) { this(query,topK,threshold,"hybrid"); }
     }
+    public record FusionRequest(@NotBlank @Size(max=500) String query,@Min(1) @Max(24) int topK) {}
     public record RerankRequest(@NotBlank @Size(max=500) String query,@Pattern(regexp="llm|bm25|configured") @NotNull String method,
-                              @Pattern(regexp="retrieved|fixture") @NotNull String source) {}
+                              @Pattern(regexp="fused|retrieved|fixture") @NotNull String source) {}
     public record PromptRequest(@NotBlank @Size(max=500) String question,@Min(1) @Max(6) int topK,
-                              @Pattern(regexp="ranked|retrieved|fixture") @NotNull String source) {}
+                              @Pattern(regexp="ranked|fused|retrieved|fixture") @NotNull String source) {}
     private final TutorialService service;
     public TutorialController(TutorialService service) { this.service=service; }
     private String owner(HttpServletRequest request) { return request.getSession(true).getId(); }
@@ -45,6 +46,7 @@ public class TutorialController {
     @PostMapping("/runs/{id}/chunk") public Object chunk(@PathVariable String id,@Valid @RequestBody ChunkRequest body,HttpServletRequest request) { return service.chunk(owner(request),id,body); }
     @PostMapping("/runs/{id}/embed") public Object embed(@PathVariable String id,HttpServletRequest request) { return service.embed(owner(request),id); }
     @PostMapping("/runs/{id}/retrieve") public Object retrieve(@PathVariable String id,@Valid @RequestBody RetrieveRequest body,HttpServletRequest request) { return service.retrieve(owner(request),id,body); }
+    @PostMapping("/runs/{id}/fusion") public Object fusion(@PathVariable String id,@Valid @RequestBody FusionRequest body,HttpServletRequest request) { return service.fusion(owner(request),id,body); }
     @PostMapping("/runs/{id}/rerank") public Object rerank(@PathVariable String id,@Valid @RequestBody RerankRequest body,HttpServletRequest request) { return service.rerank(owner(request),id,body); }
     @PostMapping("/runs/{id}/prompt") public Object prompt(@PathVariable String id,@Valid @RequestBody PromptRequest body,HttpServletRequest request) { return service.prompt(owner(request),id,body); }
     @PostMapping("/runs/{id}/generate") public Object generate(@PathVariable String id,HttpServletRequest request) { return service.generate(owner(request),id); }

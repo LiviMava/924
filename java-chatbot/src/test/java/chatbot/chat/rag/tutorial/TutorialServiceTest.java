@@ -61,6 +61,20 @@ class TutorialServiceTest {
         var word=parser.parse(service.sample("docx"),"sample.docx");assertTrue(word.stream().allMatch(s->s.page()==null));
         assertTrue(word.stream().anyMatch(s->s.text().contains("上海\t650")));assertTrue(word.size()>3);
     }
+    @Test void keywordRecallWorksOfflineAndDualRecallKeepsBranchesIndependent() throws Exception {
+        String id=run();service.parse("owner",id);service.chunk("owner",id,new TutorialController.ChunkRequest(220,40));
+        var keyword=json.valueToTree(service.retrieve("owner",id,new TutorialController.RetrieveRequest("上海酒店",5,0,"keyword"))).path("output");
+        assertFalse(keyword.path("keywordHits").isEmpty());assertTrue(keyword.path("vectorHits").isEmpty());
+        keyword.path("keywordHits").forEach(h->assertTrue(h.path("score").asDouble()>0));
+        verify(models,never()).embed(anyList());
+        var absent=json.valueToTree(service.retrieve("owner",id,new TutorialController.RetrieveRequest("zzzxnomatchword",5,0,"keyword"))).path("output");
+        assertTrue(absent.path("keywordHits").isEmpty(),"No zero-score padding");
+        service.embed("owner",id);
+        when(models.embed(List.of("上海酒店"))).thenReturn(List.of(new float[]{1,1,1}));
+        var dual=json.valueToTree(service.retrieve("owner",id,new TutorialController.RetrieveRequest("上海酒店",5,.99,"hybrid"))).path("output");
+        assertFalse(dual.path("keywordHits").isEmpty());assertTrue(dual.path("vectorHits").isEmpty());
+        assertEquals(3,dual.path("queryVector").path("dimensions").asInt());
+    }
     @Test void stagesRequirePrerequisitesAndAreBoundToTheirSession() throws Exception {
         String id=run();assertEquals(409,assertThrows(ResponseStatusException.class,()->service.embed("owner",id)).getStatusCode().value());
         assertEquals(404,assertThrows(ResponseStatusException.class,()->service.parse("other",id)).getStatusCode().value());

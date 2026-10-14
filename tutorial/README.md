@@ -30,7 +30,7 @@ flowchart LR
     end
     subgraph 提问阶段
       Q[用户问题] --> QE[同一个 Embedding 模型]
-      QE --> R[04 向量召回]
+      QE --> R[04 双路召回]
       V --> R
       R --> RR[05 重排]
       RR --> PR[06 Prompt]
@@ -46,7 +46,7 @@ flowchart LR
 | 5–12 分钟 | [01 文档解析](01-parsing.md) | PDF 页码、Word 章节、表格、原文顺序 |
 | 12–20 分钟 | [02 分块](02-chunking.md) | 220/40 与 800/120 的片段数量和重叠 |
 | 20–28 分钟 | [03 Embedding 入库](03-embedding-store.md) | 文本、实际向量摘要、数据库中的点 |
-| 28–35 分钟 | [04 向量召回](04-vector-recall.md) | 问题向量、Top-K、阈值、Cosine 复算 |
+| 28–35 分钟 | [04 双路召回](04-vector-recall.md) | BM25 / Cosine 两列候选、Top-K、阈值、Cosine 复算 |
 | 35–42 分钟 | [05 重排](05-reranking.md) | 候选排序前后，城市/费用类别带来的差异 |
 | 42–48 分钟 | [06 Prompt 组装](06-prompt.md) | system/user 消息、证据编号、来源位置 |
 | 48–55 分钟 | [07 生成与引用](07-generation.md) | 模型回答与原文逐项核对；引用有效与事实正确的区别 |
@@ -102,7 +102,7 @@ flowchart LR
 - API 仅接受样例类型或上传文件，不接受服务端任意路径、模型 URL 或 Qdrant collection 名称。
 - 点击“清理实验”或脚本结束时删除本次 collection。浏览器关闭不等于清理，服务运行时会定时清理过期实验。重启会丢失内存中的实验状态；重启前未清理的教学 collection 可能保留，需维护人员按记录的名称清理，不能删除公司 collection。
 - 原文件、向量和日志在本地；Embedding 收到片段与问题，LLM 重排收到问题与候选，生成模型收到完整 Prompt。调用会产生供应商费用。
-- 生产问答原本采用 BM25 + 向量 + RRF，本教程 04 刻意单独观察向量召回。教程没有声称已完成企业召回率评测。
+- 生产问答原本采用 BM25 + 向量 + RRF，本教程 04 已分别展示 BM25 与向量召回。教程没有声称已完成企业召回率评测。
 
 ## 输出与源码
 

@@ -6,6 +6,7 @@ param(
     [string] $Query = '去上海出差，酒店每晚最高能报销多少钱？',
     [int] $Size = 220, [int] $Overlap = 40, [int] $TopK = 5, [double] $Threshold = 0,
     [string] $BaseUrl = 'http://127.0.0.1:8090',
+    [ValidateSet('keyword','vector','hybrid')] [string] $RecallMode = 'hybrid',
     [string] $DocumentId = '',
     [ValidateRange(1,500)] [int] $FromPage = 1,
     [ValidateRange(1,500)] [int] $ToPage = 1
@@ -38,6 +39,7 @@ $plan = switch ($Stage) {
     'prompt' { @('prompt') }
     'generate' { @('prompt','generate') }
 }
+if ($RecallMode -eq 'keyword' -and $Stage -eq 'retrieve') { $plan = @('parse','chunk','retrieve') }
 $tutorialRun = $null
 $completed = @()
 $utf8 = New-Object Text.UTF8Encoding($false)
@@ -49,7 +51,7 @@ try {
     foreach ($step in $plan) {
         $body = switch ($step) {
             'chunk' { @{ size = $Size; overlap = $Overlap } }
-            'retrieve' { @{ query = $Query; topK = $TopK; threshold = $Threshold } }
+            'retrieve' { @{ query = $Query; topK = $TopK; threshold = $Threshold; mode = $RecallMode } }
             'rerank' { @{ query = $Query; method = $RerankMethod; source = $(if ($Stage -eq 'all') { 'retrieved' } else { 'fixture' }) } }
             'prompt' { @{ question = $Query; topK = 3; source = $(if ($Stage -eq 'all') { 'ranked' } else { 'fixture' }) } }
             default { @{} }

@@ -16,7 +16,11 @@ import java.util.*;
 public class TutorialController {
     public record CreateRequest(@Pattern(regexp="md|docx|pdf") @NotNull String sample) {}
     public record ChunkRequest(@Min(100) @Max(1600) int size,@Min(0) @Max(450) int overlap) {}
-    public record RetrieveRequest(@NotBlank @Size(max=500) String query,@Min(1) @Max(10) int topK,@DecimalMin("-1") @DecimalMax("1") double threshold) {}
+    public record RetrieveRequest(@NotBlank @Size(max=500) String query,@Min(1) @Max(10) int topK,@DecimalMin("-1") @DecimalMax("1") double threshold,
+        @Pattern(regexp="keyword|vector|hybrid") String mode) {
+        public RetrieveRequest { if(mode==null)mode="hybrid"; }
+        public RetrieveRequest(String query,int topK,double threshold) { this(query,topK,threshold,"hybrid"); }
+    }
     public record RerankRequest(@NotBlank @Size(max=500) String query,@Pattern(regexp="llm|bm25|configured") @NotNull String method,
                               @Pattern(regexp="retrieved|fixture") @NotNull String source) {}
     public record PromptRequest(@NotBlank @Size(max=500) String question,@Min(1) @Max(6) int topK,

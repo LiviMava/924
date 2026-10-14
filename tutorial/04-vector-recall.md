@@ -1,28 +1,34 @@
-# 04 · 向量召回：为什么换个问法也可能找到依据
+# 04 · 双路召回：关键词与向量各找什么
 
-入库时计算文档向量；提问时计算问题向量，两者必须来自兼容的同一个模型空间。本实验单独看向量召回，生产服务另外使用中文 BM25 和 RRF 融合。
+本节在相同分块上运行两种真实检索。生产也是 BM25 与向量双路召回。
 
-## 运行与输入
+| 分支 | 原理 | 输入 | 输出分数 | 特点 |
+|---|---|---|---|---|
+| 关键词 | Lucene SmartChineseAnalyzer 分词与 BM25：词频、逆文档频率、长度归一化 | 问题原文与本轮全部片段 | BM25，非固定区间 | 适合明确术语、型号、名字；没有词命中就返回空 |
+| 向量 | 同一 Embedding 模型编码问题；Qdrant 查询 | 问题向量与已入库文档向量 | Cosine，范围 [-1,1] | 可能找到同义改写；相似不保证能回答 |
+
+两路各自取 Top-K。BM25 与 Cosine 不同量纲，不能直接相加，也不是正确率。
+
+## 运行
 
 ```powershell
-.\tutorial\demos\04-vector-recall.ps1 -Query '去上海出差，酒店每晚最高能报销多少钱？' -TopK 5 -Threshold 0
-.\tutorial\demos\04-vector-recall.ps1 -Query '去上海出差，酒店每晚最高能报销多少钱？' -TopK 5 -Threshold 0.99
+# 双路：需要真实 Embedding，显示两列候选
+.\scripts\Invoke-RagTutorial.ps1 -Stage retrieve -RecallMode hybrid -Query '去上海出差，酒店每晚最高能报销多少钱？'
+# 关键词：仅解析、分块和 BM25，无需模型/向量入库
+.\scripts\Invoke-RagTutorial.ps1 -Stage retrieve -RecallMode keyword -Query '上海酒店'
+# 向量对照
+.\scripts\Invoke-RagTutorial.ps1 -Stage retrieve -RecallMode vector -Threshold 0.99
 ```
 
-```json
-{"query":"去上海出差，酒店每晚最高能报销多少钱？","topK":5,"threshold":0}
-```
+API：`POST /api/v1/tutorial/runs/{id}/retrieve`，请求 `{query,topK,threshold,mode}`，mode 为 `hybrid`（默认）、`keyword` 或 `vector`。输出 `keywordHits`、`vectorHits`、问题向量摘要及 Cosine 复算。`hits` 兼容字段在双路模式下仍代表向量结果，不表示两路融合。
 
-输出是问题向量摘要、实际召回片段、Qdrant 分数与本地复算的 Cosine。[实测快照](outputs/retrieve.json)
+## 观察
 
-## 原理
+1. 用完整术语提问，再换一种说法，观察两路排名是否不同。没有差异也应如实展示。
+2. 将向量阈值调到 0.99，观察关键词结果不会受该阈值影响。
+3. 搜索完全不存在的词，关键词返回空；不会用零分文档补足 Top-K。
+4. 查看两列是否命中相同片段。随后需要按片段 ID 去重并融合排名，不能把两个分数直接求和。
 
-```text
-Cosine(q, d) = Σ(q_i × d_i) / (√Σq_i² × √Σd_i²)
-```
+`Cosine(q,d)=点积(q,d)/(范数(q)×范数(d))`。页面保留 Qdrant 分数与本地复算，帮助理解数值。小数据集可能采用精确扫描，此实验不声称验证了大规模近似检索性能。
 
-分数衡量向量方向的接近程度，不是“答案有 80% 正确”。Top-K 是最大候选数量，阈值可以让返回数量少于 K。数据集很小时，Qdrant 也可能采用精确扫描；不能仅凭使用向量数据库就宣称本例验证了大规模近似检索性能。
-
-代码复用 `QdrantIndex.searchWithVector()`，使用 `/points/query`。本地复算只用于让听众看懂分数，不替代数据库召回。
-
-试着提高阈值或问资料没有涵盖的问题。即使有相似片段，也不代表片段能回答问题；重排和证据检查仍然需要。网页同一实验中的相同问题会缓存问题向量，修改阈值不会重复调用 Embedding。
+关键词检索使用本轮全部分块建立独立内存 Lucene 索引，使用与生产一致的分词器、默认 BM25 参数和词项查询方式，不搜索其他教学会话或正式知识库。向量复用生产 `QdrantIndex.searchWithVector()`。

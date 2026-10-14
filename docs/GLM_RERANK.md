@@ -21,4 +21,5 @@ RAG_RERANK_API_KEY=填入自己的智谱密钥
 回归：`python scripts/evaluate_handbooks.py --rerank-mode http --publish`。历史 LLM 模式可显式加 `--rerank-mode llm`；两者都不接受静默降级。
 
 官方模型合同入口：[智谱文本重排序](https://docs.bigmodel.cn/api-reference/模型-api/文本重排序)，亦见[官方文档索引](https://docs.bigmodel.cn/llms.txt)。
-`n验收：HTTP/LLM 合同测试 3/3 通过；启用原始分数后，原有 9 道手册问答 9/9 通过，检索与问答均为 HYBRID_RERANKED。默认归一化分数的首次 8/9 失败记录保留在本地日志。
+
+验收：HTTP/LLM 合同测试 3/3 通过；启用原始分数后，原有 9 道手册问答 9/9 通过，检索与问答均为 HYBRID_RERANKED。默认归一化分数的首次 8/9 失败记录保留在本地日志。

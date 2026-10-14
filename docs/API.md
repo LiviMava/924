@@ -140,7 +140,7 @@ GET /actuator/health用于应用/数据库健康检查；GET /api/v1/system额�
 | POST /runs/{id}/parse | 真实文件解析 |
 | POST /runs/{id}/chunk | `{size:220,overlap:40}` |
 | POST /runs/{id}/embed | 真实 Embedding + 独立 Qdrant 入库 |
-| POST /runs/{id}/retrieve | `{query:"…",topK:5,threshold:0}` |
+| POST /runs/{id}/retrieve | `{query:"…",topK:5,threshold:0,mode:"hybrid|keyword|vector"}` |
 | POST /runs/{id}/rerank | `{query:"…",method:"llm\|bm25\|configured",source:"retrieved\|fixture"}` |
 | POST /runs/{id}/prompt | `{question:"…",topK:3,source:"ranked\|retrieved\|fixture"}` |
 | POST /runs/{id}/generate | 使用刚组装的 Prompt 调用真实聊天模型 |

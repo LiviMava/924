@@ -48,7 +48,7 @@ public class TutorialService {
         final QdrantIndex index;
         List<ParsedSection> sections=List.of();List<TextChunk> chunks=List.of();
         List<ChunkRecord> records=List.of();List<float[]> vectors=List.of();
-        List<SearchHit> recalled=List.of(),ranked=List.of(),evidence=List.of();
+        List<SearchHit> recalled=List.of(),keywordRecalled=List.of(),vectorRecalled=List.of(),ranked=List.of(),evidence=List.of();
         String query="",recalledQuery="",rankedQuery="";Prompt prompt;boolean indexTouched;
         int fromPage=0,toPage=0;
         Run(String owner,Path source,String filename,boolean uploaded,Function<String,QdrantIndex> factory) {
@@ -131,7 +131,7 @@ public class TutorialService {
     private void invalidate(Run r,String... stages) { for(String stage:stages) r.stages.remove(stage); }
     private void clearIndex(Run r) {
         if(r.indexTouched) { r.index.deleteTutorialCollection();r.indexTouched=false; }
-        r.vectors=List.of();r.queries.clear();r.recalled=List.of();r.ranked=List.of();r.prompt=null;r.evidence=List.of();
+        r.vectors=List.of();r.queries.clear();r.keywordRecalled=List.of();r.vectorRecalled=List.of();r.recalled=List.of();r.ranked=List.of();r.prompt=null;r.evidence=List.of();
     }
     public Stage parse(String owner,String id) { return operate(owner,id,"parse",r->{
         long start=System.nanoTime();var sections=parser.parse(r.source,r.filename);
@@ -178,20 +178,35 @@ public class TutorialService {
         return Map.of("dimensions",v.length,"first8",Arrays.copyOf(v,Math.min(8,v.length)),"l2Norm",Math.sqrt(norm),"min",min,"max",max);
     }
     public Stage retrieve(String owner,String id,TutorialController.RetrieveRequest body) { return operate(owner,id,"retrieve",r->{
-        long start=System.nanoTime();require(!r.vectors.isEmpty(),"先运行 Embedding 入库");
-        float[] queryVector=r.queries.get(body.query());
-        if(queryVector==null) { queryVector=models.embed(List.of(body.query())).get(0);if(r.queries.size()>=8) r.queries.clear();r.queries.put(body.query(),queryVector); }
-        var matches=r.index.searchWithVector(queryVector,body.topK(),body.threshold());
-        Map<String,ChunkRecord> records=new HashMap<>();r.records.forEach(c->records.put(c.id(),c));
-        List<SearchHit> hits=new ArrayList<>();List<Object> checks=new ArrayList<>();
-        for(var match:matches) {
-            var c=records.get(match.id());if(c==null) throw new IllegalStateException("向量命中不属于当前实验");
-            hits.add(new SearchHit(c.id(),r.id,r.filename,c.page(),c.section(),c.text(),match.score()));
-            checks.add(Map.of("chunkIndex",c.chunkIndex(),"qdrantScore",match.score(),"recomputedCosine",cosine(queryVector,r.vectors.get(c.chunkIndex()))));
+        long start=System.nanoTime();require(!r.records.isEmpty(),"先运行分块");
+        List<SearchHit> keywords=List.of();List<SearchHit> vectors=new ArrayList<>();List<Object> checks=new ArrayList<>();
+        Map<String,Object> querySummary=Map.of();
+        if(!body.mode().equals("vector")) {
+            var documents=r.records.stream().map(c->new SearchHit(c.id(),r.id,r.filename,c.page(),c.section(),c.text(),0)).toList();
+            keywords=TutorialRanking.bm25(body.query(),documents).stream().filter(h->h.score()>0).limit(body.topK()).toList();
         }
-        r.query=body.query();r.recalledQuery=body.query();r.recalled=List.copyOf(hits);r.ranked=List.of();r.prompt=null;invalidate(r,"rerank","prompt","generate");
-        return result(r,"retrieve","LIVE_VECTOR_RECALL",body,Map.of("queryVector",vectorSummary(queryVector),"hits",hits,"cosineChecks",checks,"hitCount",hits.size()),start,
-            "问题和文档必须使用同一模型及维度；Cosine = 点积 / 两个向量范数。","Top-K 是最大返回数量；相似度分数不是答案正确概率。本实验单独展示向量召回，生产问答另有 BM25+RRF。");
+        if(!body.mode().equals("keyword")) {
+            require(!r.vectors.isEmpty(),"向量召回需要先运行 Embedding 入库；仅关键词模式无需模型");
+            float[] queryVector=r.queries.get(body.query());
+            if(queryVector==null) { queryVector=models.embed(List.of(body.query())).get(0);if(r.queries.size()>=8) r.queries.clear();r.queries.put(body.query(),queryVector); }
+            querySummary=vectorSummary(queryVector);
+            var matches=r.index.searchWithVector(queryVector,body.topK(),body.threshold());
+            Map<String,ChunkRecord> records=new HashMap<>();r.records.forEach(c->records.put(c.id(),c));
+            for(var match:matches) {
+                var c=records.get(match.id());if(c==null) throw new IllegalStateException("向量命中不属于当前实验");
+                vectors.add(new SearchHit(c.id(),r.id,r.filename,c.page(),c.section(),c.text(),match.score()));
+                checks.add(Map.of("chunkIndex",c.chunkIndex(),"qdrantScore",match.score(),"recomputedCosine",cosine(queryVector,r.vectors.get(c.chunkIndex()))));
+            }
+        }
+        r.keywordRecalled=List.copyOf(keywords);r.vectorRecalled=List.copyOf(vectors);
+        r.query=body.query();r.recalledQuery=body.query();r.recalled=body.mode().equals("keyword")?r.keywordRecalled:r.vectorRecalled;
+        r.ranked=List.of();r.prompt=null;r.evidence=List.of();invalidate(r,"rerank","prompt","generate");
+        return result(r,"retrieve",body.mode().equals("keyword")?"LOCAL_KEYWORD_RECALL":body.mode().equals("vector")?"LIVE_VECTOR_RECALL":"LIVE_DUAL_RECALL",body,
+            Map.of("queryVector",querySummary,"hits",r.recalled,"cosineChecks",checks,"hitCount",r.recalled.size(),
+                "keywordHits",keywords,"vectorHits",vectors,"keywordScoreType","BM25","vectorScoreType","COSINE"),start,
+            "关键词召回在本轮全部分块上运行 Lucene BM25；未命中关键词的片段不会补零进入结果。",
+            "向量召回使用真实 Qdrant；问题和文档使用同一 Embedding 模型。阈值只作用于向量分支。",
+            "两路各自保留 Top-K；BM25 与 Cosine 量纲不同，不直接相加，也不是答案正确概率。");
     }); }
     static double cosine(float[] a,float[] b) {
         if(a.length!=b.length) throw new IllegalArgumentException("向量维度不一致");double dot=0,aa=0,bb=0;

@@ -1,0 +1,14 @@
+{
+  "keyword": {
+    "mode": "LOCAL_KEYWORD_RECALL",
+    "keywordCount": 5,
+    "vectorCount": 0,
+    "cleaned": true
+  },
+  "dual": {
+    "mode": "LIVE_DUAL_RECALL",
+    "keywordCount": 5,
+    "vectorCount": 5,
+    "cleaned": true
+  }
+}

@@ -81,3 +81,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,su
 .corpus summary { cursor:pointer; }
 #corpus-report { margin-top:12px; }
 @media(max-width:900px) { .corpus-grid { grid-template-columns:1fr; } }
+
+.recall-branches { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px; }
+@media(max-width:1200px) { .recall-branches { grid-template-columns:1fr; } }
